@@ -119,7 +119,7 @@ with tab2:
             cols = st.columns(1 + len(results))
             with cols[0]:
                 st.image(
-                    ((fake_img.squeeze().detach().numpy() + 1) / 2),
+                    ((fake_img.squeeze().detach().cpu().numpy() + 1) / 2),
                     caption="Original fake image", clamp=True
                 )
 
@@ -131,7 +131,7 @@ with tab2:
 
                 with cols[i + 1]:
                     st.image(
-                        ((adv_img.squeeze().detach().numpy() + 1) / 2),
+                        ((adv_img.squeeze().detach().cpu().numpy() + 1) / 2),
                         caption=f"{name} adversarial image", clamp=True
                     )
                     st.metric("Discriminator score (original)", f"{orig_score:.3f}")
@@ -168,11 +168,11 @@ with tab3:
 
             col1, col2 = st.columns(2)
             col1.image(
-                ((adv_img.squeeze().detach().numpy() + 1) / 2),
+                ((adv_img.squeeze().detach().cpu().numpy() + 1) / 2),
                 caption="Adversarial image"
             )
             col2.image(
-                ((defended.squeeze().detach().numpy() + 1) / 2),
+                ((defended.squeeze().detach().cpu().numpy() + 1) / 2),
                 caption="After defense"
             )
 

@@ -17,7 +17,7 @@ def compute_saliency_map(model, image, label):
 
     saliency = image.grad.data.abs()
     saliency, _ = torch.max(saliency, dim=1)
-    return saliency.squeeze().numpy()
+    return saliency.squeeze().cpu().numpy()
 
 def plot_comparison(original, adversarial, defended, saliency_orig, saliency_adv):
     """
@@ -28,7 +28,7 @@ def plot_comparison(original, adversarial, defended, saliency_orig, saliency_adv
     fig.patch.set_facecolor('none')
 
     def to_numpy(img):
-        arr = img.squeeze().detach().numpy()
+        arr = img.squeeze().detach().cpu().numpy()
         return (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
 
     titles = ["Original", "Adversarial", "Defended", "Saliency (orig)", "Saliency (adv)"]
