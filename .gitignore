@@ -22,3 +22,8 @@ data/
 
 # Jupyter notebooks checkpoints
 .ipynb_checkpoints/
+
+# Dataset (too large for GitHub)
+data/
+chest-xray-pneumonia.zip
+archive.zip
