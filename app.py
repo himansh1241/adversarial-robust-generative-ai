@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 
+from model.classifier       import PneumoniaClassifier
+from model.train_classifier import train_classifier, predict_single_image, DEVICE as CLF_DEVICE
 from model.gan      import Generator, Discriminator
 from model.train    import train_gan, NOISE_DIM, DEVICE
 from attacks.fgsm   import fgsm_attack
@@ -39,8 +41,9 @@ defense   = st.sidebar.selectbox("Defense method", ["Gaussian denoising", "Media
 # ─────────────────────────────────────────────
 # Tab layout
 # ─────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Train GAN",
+    "🫁 Train Classifier",      # NEW
     "⚔️ Adversarial Attacks",
     "🛡️ Defense",
     "🔍 Explainability (XAI)",
@@ -91,7 +94,55 @@ with tab1:
             ax.axis("off")
         st.pyplot(fig2)
 
-# ─────────────────────── TAB 2: ATTACKS ───────────────────────────────
+# ─────────────────── TAB 2: CLASSIFIER ───────────────────────────────
+with tab2:
+    st.header("Train the Pneumonia Classifier")
+    st.info("""
+    This CNN learns to distinguish NORMAL vs PNEUMONIA chest X-rays.
+    This is separate from the GAN — it's a real medical classifier.
+    """)
+
+    clf_epochs = st.slider("Classifier training epochs", 5, 30, 10,
+                           key="clf_epochs")
+
+    if st.button("🫁 Train Classifier"):
+        progress_bar = st.progress(0)
+        status_text  = st.empty()
+
+        def clf_progress(val):
+            progress_bar.progress(val)
+            status_text.text(f"Training: {int(val*100)}% complete")
+
+        with st.spinner("Training classifier on chest X-rays..."):
+            clf, train_losses, val_accs = train_classifier(
+                progress_callback=clf_progress,
+                epochs_override=clf_epochs
+            )
+            st.session_state['classifier'] = clf
+
+        st.success("✅ Classifier trained and saved!")
+
+        # Plot training curves
+        import matplotlib.pyplot as plt
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3))
+
+        ax1.plot(train_losses, color="purple", marker="o")
+        ax1.set_title("Training loss")
+        ax1.set_xlabel("Epoch")
+        ax1.set_ylabel("Loss")
+
+        ax2.plot(val_accs, color="teal", marker="o")
+        ax2.set_title("Validation accuracy (%)")
+        ax2.set_xlabel("Epoch")
+        ax2.set_ylabel("Accuracy")
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        # Show final accuracy
+        st.metric("Final validation accuracy", f"{val_accs[-1]:.1f}%")
+
+# ─────────────────────── TAB 3: ATTACKS ───────────────────────────────
 with tab2:
     st.header("Step 2: Adversarial Attacks")
     st.warning("Attacks craft tiny invisible noise that fools the discriminator into thinking fake images are real.")
@@ -142,7 +193,7 @@ with tab2:
             st.session_state['adv_img']  = list(results.values())[-1]
             st.session_state['label']    = label
 
-# ─────────────────────── TAB 3: DEFENSE ──────────────────────────────
+# ─────────────────────── TAB 4: DEFENSE ──────────────────────────────
 with tab3:
     st.header("Step 3: Defense Mechanisms")
     st.success("Defense tries to clean adversarial noise before the model sees the image.")
@@ -190,7 +241,7 @@ with tab3:
 
             st.session_state['defended'] = defended
 
-# ─────────────────────── TAB 4: XAI ──────────────────────────────────
+# ─────────────────────── TAB 5: XAI ──────────────────────────────────
 with tab4:
     st.header("Step 4: Explainability (XAI)")
     st.info("Saliency maps show which pixels the discriminator focuses on when judging an image.")
@@ -218,7 +269,7 @@ with tab4:
             - Notice how adversarial attacks shift the model's attention to noisy/irrelevant regions
             """)
 
-# ─────────────────────── TAB 5: UPLOAD ───────────────────────────────
+# ─────────────────────── TAB 6: UPLOAD ───────────────────────────────
 with tab5:
     st.header("Step 5: Upload Your Own Image")
     st.info("Upload any grayscale image (medical scan, security footage frame, etc.) to test the pipeline.")
@@ -246,13 +297,53 @@ with tab5:
         st.caption(f"Image tensor shape: {img_tensor.shape}")
 
         if st.button("🚀 Run full pipeline on this image"):
-            disc = st.session_state['discriminator']
-            adv  = fgsm_attack(disc, img_tensor, label, epsilon=epsilon)
-            def_ = gaussian_denoise(adv)
-            sal  = compute_saliency_map(disc, img_tensor, label)
-            sal_adv = compute_saliency_map(disc, adv, label)
+    disc = st.session_state['discriminator']
 
-            fig = plot_comparison(img_tensor, adv, def_, sal, sal_adv)
-            st.pyplot(fig)
-            det = detect_adversarial(disc, adv)
-            st.json(det)
+    # ── GAN adversarial pipeline ──
+    adv     = fgsm_attack(disc, img_tensor, label, epsilon=epsilon)
+    def_img = gaussian_denoise(adv)
+    sal     = compute_saliency_map(disc, img_tensor, label)
+    sal_adv = compute_saliency_map(disc, adv, label)
+
+    fig = plot_comparison(img_tensor, adv, def_img, sal, sal_adv)
+    st.pyplot(fig)
+
+    # ── Adversarial detection ──
+    det = detect_adversarial(disc, adv)
+    st.subheader("Adversarial Detection")
+    st.json(det)
+
+    # ── Pneumonia classification ──
+    if 'classifier' in st.session_state:
+        st.subheader("🫁 Pneumonia Diagnosis")
+        clf = st.session_state['classifier']
+
+        # Classify original image
+        pred_orig, conf_orig = predict_single_image(clf, img_tensor)
+        # Classify adversarial image
+        pred_adv,  conf_adv  = predict_single_image(clf, adv)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**Original image diagnosis**")
+            if pred_orig == "PNEUMONIA":
+                st.error(f"🔴 {pred_orig}  —  confidence: {conf_orig:.1%}")
+            else:
+                st.success(f"🟢 {pred_orig}  —  confidence: {1 - conf_orig:.1%}")
+
+        with col2:
+            st.markdown("**After adversarial attack**")
+            if pred_adv == "PNEUMONIA":
+                st.error(f"🔴 {pred_adv}  —  confidence: {conf_adv:.1%}")
+            else:
+                st.success(f"🟢 {pred_adv}  —  confidence: {1 - conf_adv:.1%}")
+
+        # Show if attack changed the diagnosis
+        if pred_orig != pred_adv:
+            st.warning(f"⚠️ Adversarial attack **changed** the diagnosis from "
+                       f"{pred_orig} → {pred_adv}! This is dangerous in medical AI.")
+        else:
+            st.info(f"✅ Diagnosis unchanged after attack: still {pred_orig}")
+    else:
+        st.warning("Train the classifier first (Tab 2) to see NORMAL/PNEUMONIA diagnosis.")
