@@ -227,16 +227,23 @@ with tab5:
 
     if uploaded and 'discriminator' in st.session_state:
         from PIL import Image
-        img = Image.open(uploaded).convert("L").resize((28, 28))
+        
+        # Fix: resize to 64x64 to match pneumonia dataset GAN input size
+        img = Image.open(uploaded).convert("L").resize((64, 64))
+        
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,))
         ])
-        img_tensor = transform(img).unsqueeze(0)
-        label = torch.zeros(1, 1)
+        
+        img_tensor = transform(img).unsqueeze(0)  # shape: [1, 1, 64, 64]
+        label      = torch.zeros(1, 1)
 
         col1, col2 = st.columns(2)
         col1.image(uploaded, caption="Uploaded image", width=200)
+
+        # Show tensor shape for debugging (you can remove this later)
+        st.caption(f"Image tensor shape: {img_tensor.shape}")
 
         if st.button("🚀 Run full pipeline on this image"):
             disc = st.session_state['discriminator']
