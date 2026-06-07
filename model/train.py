@@ -9,7 +9,10 @@ EPOCHS = 10  # increase to 50+ for better quality
 LR = 0.0002
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def train_gan(progress_callback=None):
+def train_gan(progress_callback=None, epochs_override=None):
+    global EPOCHS
+    if epochs_override is not None:
+        EPOCHS = epochs_override
     """
     Trains the GAN. progress_callback is a Streamlit progress bar (optional).
     Returns the trained generator and discriminator.
