@@ -270,80 +270,75 @@ with tab4:
             """)
 
 # ─────────────────────── TAB 6: UPLOAD ───────────────────────────────
-with tab5:
+with tab6:
     st.header("Step 5: Upload Your Own Image")
-    st.info("Upload any grayscale image (medical scan, security footage frame, etc.) to test the pipeline.")
+    st.info("Upload any chest X-ray image (JPG/PNG) to run the full pipeline.")
 
     uploaded = st.file_uploader("Upload an image (JPG/PNG)", type=["jpg", "jpeg", "png"])
 
     if uploaded and 'discriminator' in st.session_state:
         from PIL import Image
-        
-        # Fix: resize to 64x64 to match pneumonia dataset GAN input size
-        img = Image.open(uploaded).convert("L").resize((64, 64))
-        
-        transform = transforms.Compose([
+
+        img        = Image.open(uploaded).convert("L").resize((64, 64))
+        transform  = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,))
         ])
-        
-        img_tensor = transform(img).unsqueeze(0)  # shape: [1, 1, 64, 64]
+        img_tensor = transform(img).unsqueeze(0)
         label      = torch.zeros(1, 1)
 
         col1, col2 = st.columns(2)
         col1.image(uploaded, caption="Uploaded image", width=200)
-
-        # Show tensor shape for debugging (you can remove this later)
         st.caption(f"Image tensor shape: {img_tensor.shape}")
 
         if st.button("🚀 Run full pipeline on this image"):
-    disc = st.session_state['discriminator']
+            disc = st.session_state['discriminator']
 
-    # ── GAN adversarial pipeline ──
-    adv     = fgsm_attack(disc, img_tensor, label, epsilon=epsilon)
-    def_img = gaussian_denoise(adv)
-    sal     = compute_saliency_map(disc, img_tensor, label)
-    sal_adv = compute_saliency_map(disc, adv, label)
+            # GAN adversarial pipeline
+            adv     = fgsm_attack(disc, img_tensor, label, epsilon=epsilon)
+            def_img = gaussian_denoise(adv)
+            sal     = compute_saliency_map(disc, img_tensor, label)
+            sal_adv = compute_saliency_map(disc, adv, label)
 
-    fig = plot_comparison(img_tensor, adv, def_img, sal, sal_adv)
-    st.pyplot(fig)
+            fig = plot_comparison(img_tensor, adv, def_img, sal, sal_adv)
+            st.pyplot(fig)
 
-    # ── Adversarial detection ──
-    det = detect_adversarial(disc, adv)
-    st.subheader("Adversarial Detection")
-    st.json(det)
+            # Adversarial detection
+            det = detect_adversarial(disc, adv)
+            st.subheader("Adversarial Detection")
+            st.json(det)
 
-    # ── Pneumonia classification ──
-    if 'classifier' in st.session_state:
-        st.subheader("🫁 Pneumonia Diagnosis")
-        clf = st.session_state['classifier']
+            # Pneumonia classification
+            if 'classifier' in st.session_state:
+                st.subheader("🫁 Pneumonia Diagnosis")
+                clf = st.session_state['classifier']
 
-        # Classify original image
-        pred_orig, conf_orig = predict_single_image(clf, img_tensor)
-        # Classify adversarial image
-        pred_adv,  conf_adv  = predict_single_image(clf, adv)
+                pred_orig, conf_orig = predict_single_image(clf, img_tensor)
+                pred_adv,  conf_adv  = predict_single_image(clf, adv)
 
-        col1, col2 = st.columns(2)
+                col1, col2 = st.columns(2)
 
-        with col1:
-            st.markdown("**Original image diagnosis**")
-            if pred_orig == "PNEUMONIA":
-                st.error(f"🔴 {pred_orig}  —  confidence: {conf_orig:.1%}")
+                with col1:
+                    st.markdown("**Original image diagnosis**")
+                    if pred_orig == "PNEUMONIA":
+                        st.error(f"🔴 {pred_orig}  —  confidence: {conf_orig:.1%}")
+                    else:
+                        st.success(f"🟢 {pred_orig}  —  confidence: {1 - conf_orig:.1%}")
+
+                with col2:
+                    st.markdown("**After adversarial attack**")
+                    if pred_adv == "PNEUMONIA":
+                        st.error(f"🔴 {pred_adv}  —  confidence: {conf_adv:.1%}")
+                    else:
+                        st.success(f"🟢 {pred_adv}  —  confidence: {1 - conf_adv:.1%}")
+
+                if pred_orig != pred_adv:
+                    st.warning(f"⚠️ Adversarial attack changed the diagnosis from "
+                               f"{pred_orig} → {pred_adv}! This is dangerous in medical AI.")
+                else:
+                    st.info(f"✅ Diagnosis unchanged after attack: still {pred_orig}")
             else:
-                st.success(f"🟢 {pred_orig}  —  confidence: {1 - conf_orig:.1%}")
+                st.warning("Train the classifier first (Tab 2) to see NORMAL/PNEUMONIA diagnosis.")
 
-        with col2:
-            st.markdown("**After adversarial attack**")
-            if pred_adv == "PNEUMONIA":
-                st.error(f"🔴 {pred_adv}  —  confidence: {conf_adv:.1%}")
-            else:
-                st.success(f"🟢 {pred_adv}  —  confidence: {1 - conf_adv:.1%}")
-
-        # Show if attack changed the diagnosis
-        if pred_orig != pred_adv:
-            st.warning(f"⚠️ Adversarial attack **changed** the diagnosis from "
-                       f"{pred_orig} → {pred_adv}! This is dangerous in medical AI.")
-        else:
-            st.info(f"✅ Diagnosis unchanged after attack: still {pred_orig}")
-    else:
-        st.warning("Train the classifier first (Tab 2) to see NORMAL/PNEUMONIA diagnosis.")
+    elif uploaded and 'discriminator' not in st.session_state:
+        st.warning("⚠️ Please train the GAN first (Tab 1) before uploading an image.")
