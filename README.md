@@ -29,7 +29,7 @@ This project answers a real and important question:
 | 🫁 Classifier | Training accuracy curve + val accuracy |
 | ⚔️ Attacks | Original vs adversarial image + score shift |
 | 🛡️ Defense | Before/after defense + detection result |
-| 📂 Diagnose | NORMAL/PNEUMONIA diagnosis + PDF download |
+| 📂 Diagnose | NORMAL/PNEUMONIA diagnosis |
 
 ---
 
