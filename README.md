@@ -105,7 +105,6 @@ adversarial_ai_project/
 | **PyTorch** | Building and training all AI models |
 | **Streamlit** | Building the interactive web interface |
 | **Matplotlib** | Plotting loss curves and training charts |
-| **ReportLab** | Generating the downloadable PDF report |
 | **Pillow (PIL)** | Loading and resizing uploaded images |
 | **Torchvision** | Image transforms and dataset utilities |
 | **Apple MPS (M4)** | GPU acceleration on Apple Silicon Mac |
@@ -138,7 +137,7 @@ You should see `(venv)` appear at the start of your terminal line.
 pip install --upgrade pip
 pip install torch torchvision torchaudio
 pip install streamlit matplotlib numpy pillow scikit-learn
-pip install torchattacks grad-cam reportlab
+pip install torchattacks grad-cam 
 ```
 
 ### Step 5 — Download the dataset
@@ -197,7 +196,6 @@ Follow the tabs in order — each step builds on the previous one.
 - Upload any chest X-ray image (JPG or PNG)
 - The app immediately shows **NORMAL** or **PNEUMONIA**
 - Click **Run Full Adversarial Pipeline** to see if the attack changes the diagnosis
-- Download the full **PDF report** of all results
 
 ---
 
