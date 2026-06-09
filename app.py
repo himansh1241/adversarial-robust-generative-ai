@@ -903,7 +903,7 @@ with tab1:
             ax.imshow(tensor_to_np(samples[i]), cmap=XRAY_CM); ax.axis("off")
         st.pyplot(fig2); plt.close()
 
-        next_step_btn("Continue to Classifier →", 1)
+        # next_step_btn("Continue to Classifier →", 1)
 
 # ════════════════════════════════════════════════════
 # TAB 2  —  CLASSIFIER
@@ -986,7 +986,7 @@ with tab2:
         if va[-1] < 65:
             st.warning("⚠️  Accuracy below 65% — try training for more epochs (15–20) for better diagnosis results.")
 
-        next_step_btn("Continue to Adversarial Attacks →", 2)
+        # next_step_btn("Continue to Adversarial Attacks →", 2)
 
 # ════════════════════════════════════════════════════
 # TAB 3  —  ATTACKS
@@ -1080,7 +1080,7 @@ with tab3:
                     else None
                     )
                 })
-                next_step_btn("Continue to Defense →", 3)
+                # next_step_btn("Continue to Defense →", 3)
             else:
                 st.markdown(f"""
                 <div style="height:200px;border:1.5px dashed {BORDER2};border-radius:12px;
@@ -1180,7 +1180,7 @@ with tab4:
                     "_def_detection": det,
                     "_def_method": defense
                 })
-                next_step_btn("Continue to Diagnose →", 4)
+                # next_step_btn("Continue to Diagnose →", 4)
             else:
                 st.markdown(f"""
                 <div style="height:220px;border:1.5px dashed {BORDER2};border-radius:12px;
