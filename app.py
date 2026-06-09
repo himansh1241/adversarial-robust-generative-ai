@@ -6,7 +6,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from PIL import Image
-import io, base64, datetime
 
 from model.gan               import Generator, Discriminator
 from model.train             import train_gan, NOISE_DIM, DEVICE
@@ -315,384 +314,9 @@ def diag_card(col, title, pred, conf):
         f'{conf_d:.1%}</b></div></div>',
         unsafe_allow_html=True)
 
-def next_step_btn(label, target_tab):
-    """Renders a styled 'next step' button that sets the target tab."""
-    st.markdown('<div class="next-btn" style="margin-top:24px;display:flex;justify-content:flex-end;">', unsafe_allow_html=True)
-    if st.button(f"➜  {label}", key=f"next_{target_tab}"):
-        st.session_state["active_tab"] = target_tab
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def tensor_to_png_b64(t):
-    """Convert a tensor image to base64 PNG for PDF embedding."""
-    arr = tensor_to_np(t)
-    arr_uint8 = (arr * 255).astype(np.uint8)
-    pil = Image.fromarray(arr_uint8, mode='L')
-    buf = io.BytesIO()
-    pil.save(buf, format="PNG")
-    return buf.getvalue()
-
 # ─────────────────────────────────────────────────────────────────────
-# PDF report generator
-# ─────────────────────────────────────────────────────────────────────
-def generate_pdf_report(report_data: dict) -> bytes:
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.lib import colors
-    from reportlab.lib.styles import ParagraphStyle
-    from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table,
-        TableStyle, HRFlowable, Image as RLImage, KeepTogether
-    )
-    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
-
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buf, pagesize=A4,
-        leftMargin=18*mm, rightMargin=18*mm,
-        topMargin=16*mm, bottomMargin=16*mm
-    )
-
-    W = A4[0] - 36*mm   # usable width
-
-    # ── Color palette ──
-    C_BG      = colors.HexColor("#070b14")
-    C_CARD    = colors.HexColor("#0d1424")
-    C_BORDER  = colors.HexColor("#1a2640")
-    C_ACCENT  = colors.HexColor("#0ea5e9")
-    C_TEXT1   = colors.HexColor("#f0f4ff")
-    C_TEXT2   = colors.HexColor("#8b9dc3")
-    C_TEXT3   = colors.HexColor("#3d5175")
-    C_GREEN   = colors.HexColor("#34d399")
-    C_RED     = colors.HexColor("#f87171")
-    C_AMBER   = colors.HexColor("#f59e0b")
-    C_WHITE   = colors.white
-
-    # ── Styles ──
-    def sty(name, **kwargs):
-        defaults = {
-            "fontName": "Helvetica",
-            "fontSize": 10,
-            "leading": 14,
-            "textColor": colors.black,
-        }
-
-        defaults.update(kwargs)  # override defaults safely
-
-        return ParagraphStyle(name, **defaults)
-
-    S = {
-        "title":    sty("title",   fontName="Helvetica-Bold", fontSize=22,
-                        textColor=C_TEXT1, leading=26, spaceAfter=4),
-        "sub":      sty("sub",     fontSize=10, textColor=C_TEXT3, leading=14, spaceAfter=2),
-        "h2":       sty("h2",      fontName="Helvetica-Bold", fontSize=13,
-                        textColor=C_TEXT1, leading=18, spaceBefore=10, spaceAfter=4),
-        "h3":       sty("h3",      fontName="Helvetica-Bold", fontSize=10,
-                        textColor=C_ACCENT, leading=14, spaceBefore=6, spaceAfter=2),
-        "body":     sty("body",    fontSize=9, textColor=C_TEXT2, leading=14),
-        "mono":     sty("mono",    fontName="Courier", fontSize=8,
-                        textColor=C_ACCENT, leading=12),
-        "verdict_ok":  sty("vok",  fontName="Helvetica-Bold", fontSize=11,
-                           textColor=C_GREEN, leading=16),
-        "verdict_bad": sty("vbad", fontName="Helvetica-Bold", fontSize=11,
-                           textColor=C_RED, leading=16),
-        "label":    sty("label",   fontName="Helvetica-Bold", fontSize=7,
-                        textColor=C_TEXT3, leading=10, spaceAfter=1),
-        "value":    sty("value",   fontName="Helvetica-Bold", fontSize=14,
-                        textColor=C_TEXT1, leading=18),
-        "caption":  sty("caption", fontSize=7, textColor=C_TEXT3,
-                        leading=10, alignment=TA_CENTER),
-    }
-
-    def HR(clr=C_BORDER, thickness=0.5):
-        return HRFlowable(width="100%", thickness=thickness,
-                          color=clr, spaceAfter=6, spaceBefore=6)
-
-    def metric_table(items):
-        """items = [(label, value, color), ...]"""
-        cell_w = W / len(items)
-        data   = [[Paragraph(lbl, S["label"]) for lbl, _, _ in items],
-                  [Paragraph(str(val),
-                   ParagraphStyle("mv", fontName="Helvetica-Bold", fontSize=16,
-                                  textColor=clr, leading=20))
-                   for _, val, clr in items]]
-        t = Table(data, colWidths=[cell_w]*len(items), rowHeights=[14, 24])
-        t.setStyle(TableStyle([
-            ("BACKGROUND", (0,0), (-1,-1), C_CARD),
-            ("BOX",        (0,0), (-1,-1), 0.5, C_BORDER),
-            ("INNERGRID",  (0,0), (-1,-1), 0.3, C_BORDER),
-            ("TOPPADDING",    (0,0), (-1,-1), 8),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 8),
-            ("LEFTPADDING",   (0,0), (-1,-1), 12),
-            ("RIGHTPADDING",  (0,0), (-1,-1), 12),
-            ("ROUNDEDCORNERS", [6]),
-        ]))
-        return t
-
-    def tensor_image_flowable(tensor, w_mm, h_mm, caption_text=""):
-        png = tensor_to_png_b64(tensor)
-        img = RLImage(io.BytesIO(png), width=w_mm*mm, height=h_mm*mm)
-        if caption_text:
-            return [img, Paragraph(caption_text, S["caption"]), Spacer(1, 3*mm)]
-        return [img, Spacer(1, 3*mm)]
-
-    # ── Build story ──
-    story = []
-    now   = datetime.datetime.now().strftime("%d %B %Y, %H:%M")
-
-    # ── Cover block ──
-    cover_data = [[
-        Paragraph("MedShield AI", S["title"]),
-        Paragraph("Adversarial Robustness Analysis Report", S["sub"]),
-        Spacer(1, 3),
-        Paragraph(f"Generated: {now}    |    Author: Himanshu Ranjan", S["sub"]),
-    ]]
-    cover = Table([cover_data[0]], colWidths=[W])
-    cover.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0), (-1,-1), C_CARD),
-        ("BOX",           (0,0), (-1,-1), 0.5, C_ACCENT),
-        ("LEFTPADDING",   (0,0), (-1,-1), 16),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 16),
-        ("TOPPADDING",    (0,0), (-1,-1), 16),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 16),
-        ("ROUNDEDCORNERS", [8]),
-    ]))
-    story += [cover, Spacer(1, 6*mm)]
-
-    # ── Section 1: Model summary ──
-    story += [HR(C_ACCENT, 1.5), Paragraph("1  Model Overview", S["h2"]), HR()]
-    items1 = [
-        ("Architecture", "DCGAN", C_TEXT1),
-        ("Classifier", "4-Block CNN", C_TEXT1),
-        ("Input Size", "64 x 64 px", C_TEXT1),
-        ("Device", str(DEVICE).upper(), C_ACCENT),
-    ]
-    story += [metric_table(items1), Spacer(1, 4*mm)]
-
-    if report_data.get("gan_trained"):
-        story += [Paragraph("GAN Training", S["h3"])]
-        g_l = report_data.get("g_losses", [])
-        d_l = report_data.get("d_losses", [])
-        if g_l:
-            items2 = [
-                ("Final G Loss", f"{g_l[-1]:.4f}", C_AMBER),
-                ("Final D Loss", f"{d_l[-1]:.4f}", C_AMBER),
-                ("Epochs",       str(len(g_l)),     C_TEXT1),
-            ]
-            story += [metric_table(items2), Spacer(1, 3*mm)]
-
-    if report_data.get("clf_trained"):
-        story += [Paragraph("Classifier Training", S["h3"])]
-        t_l  = report_data.get("t_losses", [])
-        v_a  = report_data.get("v_accs", [])
-        if t_l:
-            items3 = [
-                ("Final Val Acc",   f"{v_a[-1]:.1f}%", C_GREEN),
-                ("Final Train Loss", f"{t_l[-1]:.4f}", C_AMBER),
-                ("Epochs",          str(len(t_l)),     C_TEXT1),
-            ]
-            story += [metric_table(items3), Spacer(1, 3*mm)]
-
-    # ── Section 2: Adversarial attack ──
-    story += [HR(C_ACCENT, 1.5), Paragraph("2  Adversarial Attack Results", S["h2"]), HR()]
-
-    atk_data = report_data.get("attack", {})
-    if atk_data:
-        orig_sc = atk_data.get("orig_score", 0)
-        adv_sc  = atk_data.get("adv_score",  0)
-        delta   = adv_sc - orig_sc
-        items4  = [
-            ("Attack Type",        atk_data.get("type","FGSM"),  C_TEXT1),
-            ("Epsilon (strength)", str(atk_data.get("epsilon","0.1")), C_AMBER),
-            ("Original Score",     f"{orig_sc:.3f}",             C_TEXT1),
-            ("Adversarial Score",  f"{adv_sc:.3f}",              C_RED if delta > 0.05 else C_GREEN),
-            ("Score Shift",        f"{delta:+.3f}",              C_RED if delta > 0 else C_GREEN),
-        ]
-        story += [metric_table(items4), Spacer(1, 4*mm)]
-
-        # Side-by-side images
-        fake_t = atk_data.get("fake_img")
-        adv_t  = atk_data.get("adv_img")
-        if fake_t is not None and adv_t is not None:
-            story += [Paragraph("Visual comparison — original vs adversarial", S["h3"])]
-            iw = W / 2 - 4*mm
-            ih = iw * 0.75
-            img_row = [[
-                tensor_image_flowable(fake_t, iw/mm, ih/mm, "Original (GAN output)"),
-                tensor_image_flowable(adv_t,  iw/mm, ih/mm, f"FGSM adversarial (e={atk_data.get('epsilon',0.1):.2f})")
-            ]]
-            # flatten lists for table
-            left_items  = img_row[0][0]
-            right_items = img_row[0][1]
-            img_table = Table(
-                [[left_items[0], right_items[0]],
-                 [left_items[1], right_items[1]]],
-                colWidths=[iw, iw]
-            )
-            img_table.setStyle(TableStyle([
-                ("ALIGN", (0,0), (-1,-1), "CENTER"),
-                ("VALIGN",(0,0), (-1,-1), "TOP"),
-                ("LEFTPADDING",  (0,0), (-1,-1), 4),
-                ("RIGHTPADDING", (0,0), (-1,-1), 4),
-            ]))
-            story += [img_table, Spacer(1, 4*mm)]
-
-    else:
-        story += [Paragraph("No attack data recorded in this session.", S["body"]),
-                  Spacer(1, 4*mm)]
-
-    # ── Section 3: Defense ──
-    story += [HR(C_ACCENT, 1.5), Paragraph("3  Defense Analysis", S["h2"]), HR()]
-
-    def_data = report_data.get("defense", {})
-    if def_data:
-        det = def_data.get("detection", {})
-        is_adv   = det.get("is_adversarial", False)
-        adv_sc_d = def_data.get("adv_score",  0)
-        def_sc_d = def_data.get("def_score",  0)
-
-        items5 = [
-            ("Method",          def_data.get("method","—"),         C_TEXT1),
-            ("Before defense",  f"{adv_sc_d:.4f}",                  C_RED),
-            ("After defense",   f"{def_sc_d:.4f}",                  C_GREEN),
-            ("Recovery",        f"{abs(def_sc_d-adv_sc_d):.4f}",    C_AMBER),
-            ("Adversarial?",    "YES" if is_adv else "NO",
-             C_RED if is_adv else C_GREEN),
-        ]
-        story += [metric_table(items5), Spacer(1, 3*mm)]
-
-        if det:
-            det_style = S["verdict_bad"] if is_adv else S["verdict_ok"]
-            icon      = "WARNING" if is_adv else "CLEAN"
-            story += [
-                Paragraph(f"Detection verdict: {icon}", det_style),
-                Paragraph(
-                    f"Confidence drop: {det.get('confidence_drop',0):.4f}  "
-                    f"(threshold: {det.get('threshold',0.3)})",
-                    S["mono"]),
-                Spacer(1, 4*mm)
-            ]
-    else:
-        story += [Paragraph("No defense data recorded in this session.", S["body"]),
-                  Spacer(1, 4*mm)]
-
-    # ── Section 4: Upload diagnosis ──
-    story += [HR(C_ACCENT, 1.5), Paragraph("4  Clinical Upload Diagnosis", S["h2"]), HR()]
-
-    diag_data = report_data.get("diagnosis", {})
-    if diag_data:
-        pred_o = diag_data.get("pred_orig", "—")
-        pred_a = diag_data.get("pred_adv",  "—")
-        pred_d = diag_data.get("pred_def",  "—")
-        co     = diag_data.get("conf_orig", 0)
-        ca     = diag_data.get("conf_adv",  0)
-        cd     = diag_data.get("conf_def",  0)
-
-        def conf_disp(pred, conf):
-            return conf if pred == "PNEUMONIA" else 1 - conf
-
-        items6 = [
-            ("Original diagnosis", pred_o,
-             C_RED if pred_o=="PNEUMONIA" else C_GREEN),
-            ("Confidence",        f"{conf_disp(pred_o,co):.1%}", C_TEXT1),
-            ("After attack",      pred_a,
-             C_RED if pred_a=="PNEUMONIA" else C_GREEN),
-            ("After defense",     pred_d,
-             C_RED if pred_d=="PNEUMONIA" else C_GREEN),
-        ]
-        story += [metric_table(items6), Spacer(1, 4*mm)]
-
-        # verdict
-        if pred_o != pred_a:
-            story += [
-                Paragraph(
-                    f"CRITICAL: Attack changed diagnosis from {pred_o} to {pred_a}",
-                    S["verdict_bad"]),
-                Paragraph(
-                    "Adversarial perturbation flipped the clinical outcome. "
-                    "This demonstrates the critical need for robustness in medical AI.",
-                    S["body"]),
-                Spacer(1, 3*mm)
-            ]
-        else:
-            story += [
-                Paragraph(
-                    f"Model maintained diagnosis: {pred_o} (robust)",
-                    S["verdict_ok"]),
-                Paragraph(
-                    "The classifier correctly resisted the adversarial perturbation.",
-                    S["body"]),
-                Spacer(1, 3*mm)
-            ]
-
-        # upload images
-        imgs = []
-        for key, cap in [("img_tensor","Original X-ray"),
-                         ("adv_img",   "After FGSM attack"),
-                         ("def_img",   "After defense")]:
-            t = diag_data.get(key)
-            if t is not None:
-                imgs.append((t, cap))
-
-        if imgs:
-            iw = W / 3 - 4*mm
-            ih = iw
-            img_cells = [tensor_image_flowable(t, iw/mm, ih/mm, cap) for t, cap in imgs]
-            img_tbl = Table(
-                [[c[0] for c in img_cells],
-                 [c[1] for c in img_cells]],
-                colWidths=[iw]*3
-            )
-            img_tbl.setStyle(TableStyle([
-                ("ALIGN",        (0,0), (-1,-1), "CENTER"),
-                ("VALIGN",       (0,0), (-1,-1), "TOP"),
-                ("LEFTPADDING",  (0,0), (-1,-1), 3),
-                ("RIGHTPADDING", (0,0), (-1,-1), 3),
-            ]))
-            story += [img_tbl, Spacer(1, 4*mm)]
-    else:
-        story += [Paragraph("No upload diagnosis recorded in this session.", S["body"]),
-                  Spacer(1, 4*mm)]
-
-    # ── Section 5: Technical summary table ──
-    story += [HR(C_ACCENT, 1.5), Paragraph("5  Technical Parameters", S["h2"]), HR()]
-
-    params = [
-        ["Parameter", "Value", "Notes"],
-        ["GAN type",         "DCGAN",                  "Conv + BatchNorm layers"],
-        ["Noise dim",        "100",                    "Latent vector dimension"],
-        ["Image size",       "64 x 64 px",             "Grayscale, 1 channel"],
-        ["Classifier",       "4-block CNN + Dropout",  "Binary classification"],
-        ["Attack — FGSM",    f"e={report_data.get('epsilon','0.10')}",  "Single gradient step"],
-        ["Attack — PGD",     f"e={report_data.get('epsilon','0.10')}, {report_data.get('pgd_steps','20')} steps", "Iterative projection"],
-        ["Defense",          report_data.get("defense_method","—"), "Pre-processing pipeline"],
-        ["Framework",        "PyTorch",                "Apple MPS acceleration"],
-    ]
-    param_tbl = Table(params,
-                      colWidths=[W*0.30, W*0.28, W*0.42],
-                      repeatRows=1)
-    param_tbl.setStyle(TableStyle([
-        ("BACKGROUND",    (0,0), (-1,0),  C_ACCENT),
-        ("TEXTCOLOR",     (0,0), (-1,0),  C_WHITE),
-        ("FONTNAME",      (0,0), (-1,0),  "Helvetica-Bold"),
-        ("FONTSIZE",      (0,0), (-1,0),  8),
-        ("BACKGROUND",    (0,1), (-1,-1), C_CARD),
-        ("TEXTCOLOR",     (0,1), (-1,-1), C_TEXT2),
-        ("FONTNAME",      (0,1), (-1,-1), "Helvetica"),
-        ("FONTSIZE",      (0,1), (-1,-1), 8),
-        ("ROWBACKGROUNDS",(0,1), (-1,-1), [C_CARD, colors.HexColor("#0f1a2e")]),
-        ("GRID",          (0,0), (-1,-1), 0.4, C_BORDER),
-        ("TOPPADDING",    (0,0), (-1,-1), 7),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 7),
-        ("LEFTPADDING",   (0,0), (-1,-1), 10),
-        ("RIGHTPADDING",  (0,0), (-1,-1), 10),
-        ("ALIGN",         (0,0), (-1,-1), "LEFT"),
-        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
-        ("ROUNDEDCORNERS", [4]),
-    ]))
-    story += [param_tbl, Spacer(1, 6*mm)]
-
     # ── Footer ──
+# ─────────────────────────────────────────────────────────────────────
     story += [
         HR(C_BORDER),
         Table([[
@@ -902,8 +526,6 @@ with tab1:
             ax.imshow(tensor_to_np(samples[i]), cmap=XRAY_CM); ax.axis("off")
         st.pyplot(fig2); plt.close()
 
-        # next_step_btn("Continue to Classifier →", 1)
-
 # ════════════════════════════════════════════════════
 # TAB 2  —  CLASSIFIER
 # ════════════════════════════════════════════════════
@@ -984,8 +606,6 @@ with tab2:
 
         if va[-1] < 65:
             st.warning("⚠️  Accuracy below 65% — try training for more epochs (15–20) for better diagnosis results.")
-
-        # next_step_btn("Continue to Adversarial Attacks →", 2)
 
 # ════════════════════════════════════════════════════
 # TAB 3  —  ATTACKS
@@ -1079,7 +699,7 @@ with tab3:
                     else None
                     )
                 })
-                # next_step_btn("Continue to Defense →", 3)
+
             else:
                 st.markdown(f"""
                 <div style="height:200px;border:1.5px dashed {BORDER2};border-radius:12px;
@@ -1179,7 +799,7 @@ with tab4:
                     "_def_detection": det,
                     "_def_method": defense
                 })
-                # next_step_btn("Continue to Diagnose →", 4)
+
             else:
                 st.markdown(f"""
                 <div style="height:220px;border:1.5px dashed {BORDER2};border-radius:12px;
