@@ -13,7 +13,6 @@ In simple terms:
 3. **Attacks the model** — adds tiny invisible noise to fool the AI into making wrong decisions
 4. **Defends against attacks** — cleans the noisy image before the AI sees it
 5. **Shows you everything** — through a professional interactive web interface built with Streamlit
-6. **Generates a PDF report** — a downloadable summary of every result
 
 This project answers a real and important question:
 > *"Can a medical AI be tricked by invisible noise — and how do we stop that?"*
@@ -199,20 +198,6 @@ Follow the tabs in order — each step builds on the previous one.
 - The app immediately shows **NORMAL** or **PNEUMONIA**
 - Click **Run Full Adversarial Pipeline** to see if the attack changes the diagnosis
 - Download the full **PDF report** of all results
-
----
-
-## 📄 PDF Report — What It Includes
-
-The auto-generated PDF report contains:
-
-- **Cover page** — project name, date, author
-- **Section 1** — Model overview (GAN + Classifier training results)
-- **Section 2** — Adversarial attack results with before/after X-ray images
-- **Section 3** — Defense analysis with detection verdict
-- **Section 4** — Clinical upload diagnosis comparison (original vs attacked vs defended)
-- **Section 5** — Technical parameters table (all settings used)
-- **Footer** — author details and disclaimer
 
 ---
 
