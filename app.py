@@ -1359,13 +1359,7 @@ with tab5:
 
                     fname = f"MedShield_Report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                     st.markdown('<div class="dl-btn">', unsafe_allow_html=True)
-                    st.download_button(
-                        label="📄  Download Full Report (PDF)",
-                        data=pdf_bytes,
-                        file_name=fname,
-                        mime="application/pdf",
-                        key="dl_pdf"
-                    )
+
                     st.markdown('</div>', unsafe_allow_html=True)
                     st.caption(f"Report includes model summary, attack analysis, defense results, diagnosis comparison, and X-ray images.")
 
