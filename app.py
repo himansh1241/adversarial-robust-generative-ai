@@ -21,7 +21,6 @@ from defense.defend          import gaussian_denoise, median_filter_defense, det
 # ─────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="MedShield AI",
-    page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -443,7 +442,7 @@ def generate_pdf_report(report_data: dict) -> bytes:
 
     # ── Cover block ──
     cover_data = [[
-        Paragraph("🛡️  MedShield AI", S["title"]),
+        Paragraph("MedShield AI", S["title"]),
         Paragraph("Adversarial Robustness Analysis Report", S["sub"]),
         Spacer(1, 3),
         Paragraph(f"Generated: {now}    |    Author: Himanshu Ranjan", S["sub"]),
@@ -1312,56 +1311,6 @@ with tab5:
                     r2.metric("Original score",  det["original_score"])
                     r3.metric("Smoothed score",  det["smoothed_score"])
                     r4.metric("Confidence drop", det["confidence_drop"])
-
-                    # ── Save to session for PDF ──
-                    st.session_state["_diag"] = {
-                        "pred_orig": pred_orig, "conf_orig": co,
-                        "pred_adv":  pred_adv,  "conf_adv":  ca,
-                        "pred_def":  pred_def,  "conf_def":  cd,
-                        "img_tensor": img_tensor,
-                        "adv_img":   adv,
-                        "def_img":   def_img,
-                    }
-
-                    # ── PDF download ──
-                    st.markdown('<hr class="ms-rule">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="ms-section-label">Download Report</div>', unsafe_allow_html=True)
-
-                    report_payload = {
-                        "gan_trained":    "generator" in st.session_state,
-                        "clf_trained":    "classifier" in st.session_state,
-                        "g_losses":       st.session_state.get("_g_losses", []),
-                        "d_losses":       st.session_state.get("_d_losses", []),
-                        "t_losses":       st.session_state.get("_tlosses", []),
-                        "v_accs":         st.session_state.get("_vaccs", []),
-                        "epsilon":        epsilon,
-                        "pgd_steps":      pgd_steps,
-                        "defense_method": defense,
-                        "attack": {
-                            "type":     "FGSM",
-                            "epsilon":  epsilon,
-                            "fake_img": st.session_state.get("fake_img"),
-                            "adv_img":  st.session_state.get("adv_img"),
-                            "orig_score": st.session_state.get("_atk_orig_sc", 0),
-                            "adv_score":  st.session_state.get("_atk_adv_sc",  0),
-                        },
-                        "defense": {
-                            "method":    st.session_state.get("_def_method", defense),
-                            "adv_score": st.session_state.get("_def_adv_sc", 0),
-                            "def_score": st.session_state.get("_def_def_sc", 0),
-                            "detection": st.session_state.get("_def_detection", {}),
-                        },
-                        "diagnosis": st.session_state["_diag"],
-                    }
-
-                    with st.spinner("Generating PDF report…"):
-                        pdf_bytes = generate_pdf_report(report_payload)
-
-                    fname = f"MedShield_Report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                    st.markdown('<div class="dl-btn">', unsafe_allow_html=True)
-
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    st.caption(f"Report includes model summary, attack analysis, defense results, diagnosis comparison, and X-ray images.")
 
 # ─────────────────────────────────────────────────────────────────────
 # Footer
