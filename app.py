@@ -652,6 +652,53 @@ if os.path.exists("classifier.pth") and "classifier" not in st.session_state:
         ax2.set_title("Validation accuracy", color=TEXT2, fontsize=10, pad=8)
         plt.tight_layout(); st.pyplot(fig); plt.close()
 
+        # ── Confusion matrix on test set ──
+        st.markdown('<hr class="ms-rule">', unsafe_allow_html=True)
+        st.markdown(f'<div class="ms-section-label">Confusion Matrix — Test Set</div>',
+                    unsafe_allow_html=True)
+
+        from utils.data_loader import get_data_loaders
+        clf = st.session_state["classifier"]
+        _, _, test_loader = get_data_loaders()
+
+        clf.eval()
+        tp = fp = tn = fn = 0
+        with torch.no_grad():
+            for images, labels in test_loader:
+                images  = images.to(DEVICE)
+                labels  = labels.float().unsqueeze(1).to(DEVICE)
+                outputs = clf(images)
+                preds   = (outputs > 0.5).float()
+                tp += ((preds == 1) & (labels == 1)).sum().item()
+                fp += ((preds == 1) & (labels == 0)).sum().item()
+                tn += ((preds == 0) & (labels == 0)).sum().item()
+                fn += ((preds == 0) & (labels == 1)).sum().item()
+
+        total   = tp + fp + tn + fn
+        acc     = (tp + tn) / total * 100 if total > 0 else 0
+
+        fig_cm, ax_cm = plt.subplots(figsize=(5, 4), facecolor=CHART_PL)
+        style_ax(ax_cm)
+        matrix = [[int(tn), int(fp)], [int(fn), int(tp)]]
+        im = ax_cm.imshow(matrix, cmap="Blues")
+        ax_cm.set_xticks([0, 1])
+        ax_cm.set_yticks([0, 1])
+        ax_cm.set_xticklabels(["Pred: Normal", "Pred: Pneumonia"],
+                               color=TEXT2, fontsize=9)
+        ax_cm.set_yticklabels(["Actual: Normal", "Actual: Pneumonia"],
+                               color=TEXT2, fontsize=9)
+        for i in range(2):
+            for j in range(2):
+                ax_cm.text(j, i, str(matrix[i][j]),
+                           ha="center", va="center",
+                           color=TEXT1, fontsize=16, fontweight="bold")
+        ax_cm.set_title(f"Test accuracy: {acc:.1f}%", color=TEXT2, fontsize=10, pad=10)
+        plt.tight_layout()
+
+        cm_col, _ = st.columns([1, 1])
+        cm_col.pyplot(fig_cm)
+        plt.close()
+
         if va[-1] < 65:
             st.warning("⚠️  Accuracy below 65% — try training for more epochs (15–20) for better diagnosis results.")
 
@@ -988,6 +1035,38 @@ with tab5:
                     r2.metric("Original score",  det["original_score"])
                     r3.metric("Smoothed score",  det["smoothed_score"])
                     r4.metric("Confidence drop", det["confidence_drop"])
+
+                    # ── Grad-CAM heatmap ──
+                    st.markdown('<hr class="ms-rule">', unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div class="ms-section-label">Grad-CAM — Where the model looks</div>',
+                        unsafe_allow_html=True)
+
+                    try:
+                        from xai.gradcam import compute_gradcam
+                        heatmap = compute_gradcam(clf, img_tensor)
+
+                        fig_gc, (gc1, gc2) = plt.subplots(
+                            1, 2, figsize=(8, 3.5), facecolor=CHART_PL)
+                        style_ax(gc1); style_ax(gc2)
+
+                        gc1.imshow(tensor_to_np(img_tensor), cmap="gray")
+                        gc1.set_title("Original X-ray", color=TEXT2, fontsize=10)
+                        gc1.axis("off")
+
+                        gc2.imshow(tensor_to_np(img_tensor), cmap="gray")
+                        gc2.imshow(heatmap, cmap="jet", alpha=0.45)
+                        gc2.set_title("Grad-CAM heatmap", color=TEXT2, fontsize=10)
+                        gc2.axis("off")
+
+                        plt.tight_layout()
+                        st.pyplot(fig_gc)
+                        plt.close()
+                        st.caption(
+                            "🔴 Red/yellow regions = where the model focuses most "
+                            "when deciding NORMAL vs PNEUMONIA")
+                    except Exception as e:
+                        st.info(f"Grad-CAM skipped: {e}")
 
 # ─────────────────────────────────────────────────────────────────────
 # Footer

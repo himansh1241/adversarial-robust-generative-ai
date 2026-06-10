@@ -42,3 +42,25 @@ def plot_comparison(original, adversarial, defended, saliency_orig, saliency_adv
 
     plt.tight_layout()
     return fig
+
+def compute_gradcam(model, image_tensor):
+    """
+    Returns a heatmap showing which parts of the X-ray
+    the classifier focuses on when making its decision.
+    """
+    from pytorch_grad_cam import GradCAM
+    from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+
+    image_tensor = image_tensor.squeeze()
+    while image_tensor.dim() < 4:
+        image_tensor = image_tensor.unsqueeze(0)
+
+    from model.train import DEVICE
+    image_tensor = image_tensor.to(DEVICE)
+
+    # Target the last conv layer in the features block
+    target_layers = [model.features[-2]]
+    cam    = GradCAM(model=model, target_layers=target_layers)
+    targets = [ClassifierOutputTarget(0)]
+    grayscale_cam = cam(input_tensor=image_tensor, targets=targets)
+    return grayscale_cam[0]
