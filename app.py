@@ -592,7 +592,7 @@ with tab2:
 
 import os
 if os.path.exists("classifier.pth") and "classifier" not in st.session_state:
-    if st.button("📂  Load Saved Classifier", key="load_clf"):
+    if st.button("📂  Load Saved Classifier", key="load_clf_btn"):
         from model.train_classifier import load_classifier
         clf = load_classifier()
         st.session_state["classifier"] = clf
@@ -917,8 +917,17 @@ with tab5:
                 if st.button("🚀  Run Full Adversarial Pipeline", key="btn_run_pipeline"):
                     disc = st.session_state["discriminator"]
 
+                    attack_choice = st.radio(
+                        "Attack to use on your image",
+                        ["FGSM", "PGD"], horizontal=True, key="diag_attack"
+                    )
+
                     with st.spinner("Running pipeline…"):
-                        adv     = fgsm_attack(disc, img_tensor, label, epsilon=epsilon)
+                        if attack_choice == "FGSM":
+                            adv = fgsm_attack(disc, img_tensor, label, epsilon=epsilon)
+                        else:
+                            adv = pgd_attack(disc, img_tensor, label,
+                                            epsilon=epsilon, num_steps=pgd_steps)
                         def_img = gaussian_denoise(adv)
 
                     st.markdown('<hr class="ms-rule">', unsafe_allow_html=True)
