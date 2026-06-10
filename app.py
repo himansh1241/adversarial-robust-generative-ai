@@ -1036,38 +1036,6 @@ with tab5:
                     r3.metric("Smoothed score",  det["smoothed_score"])
                     r4.metric("Confidence drop", det["confidence_drop"])
 
-                    # ── Grad-CAM heatmap ──
-                    st.markdown('<hr class="ms-rule">', unsafe_allow_html=True)
-                    st.markdown(
-                        f'<div class="ms-section-label">Grad-CAM — Where the model looks</div>',
-                        unsafe_allow_html=True)
-
-                    try:
-                        from xai.gradcam import compute_gradcam
-                        heatmap = compute_gradcam(clf, img_tensor)
-
-                        fig_gc, (gc1, gc2) = plt.subplots(
-                            1, 2, figsize=(8, 3.5), facecolor=CHART_PL)
-                        style_ax(gc1); style_ax(gc2)
-
-                        gc1.imshow(tensor_to_np(img_tensor), cmap="gray")
-                        gc1.set_title("Original X-ray", color=TEXT2, fontsize=10)
-                        gc1.axis("off")
-
-                        gc2.imshow(tensor_to_np(img_tensor), cmap="gray")
-                        gc2.imshow(heatmap, cmap="jet", alpha=0.45)
-                        gc2.set_title("Grad-CAM heatmap", color=TEXT2, fontsize=10)
-                        gc2.axis("off")
-
-                        plt.tight_layout()
-                        st.pyplot(fig_gc)
-                        plt.close()
-                        st.caption(
-                            "🔴 Red/yellow regions = where the model focuses most "
-                            "when deciding NORMAL vs PNEUMONIA")
-                    except Exception as e:
-                        st.info(f"Grad-CAM skipped: {e}")
-
 # ─────────────────────────────────────────────────────────────────────
 # Footer
 # ─────────────────────────────────────────────────────────────────────
