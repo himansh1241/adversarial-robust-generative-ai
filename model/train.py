@@ -69,3 +69,27 @@ def train_gan(progress_callback=None, epochs_override=None):
     torch.save(discriminator.state_dict(), "discriminator.pth")
 
     return generator, discriminator, g_losses, d_losses
+
+def load_generator():
+    """Load a previously trained generator from disk."""
+    import os
+    if not os.path.exists("generator.pth"):
+        return None
+    model = Generator(noise_dim=NOISE_DIM).to(DEVICE)
+    model.load_state_dict(
+        torch.load("generator.pth", map_location=DEVICE)
+    )
+    model.eval()
+    return model
+
+def load_discriminator():
+    """Load a previously trained discriminator from disk."""
+    import os
+    if not os.path.exists("discriminator.pth"):
+        return None
+    model = Discriminator().to(DEVICE)
+    model.load_state_dict(
+        torch.load("discriminator.pth", map_location=DEVICE)
+    )
+    model.eval()
+    return model

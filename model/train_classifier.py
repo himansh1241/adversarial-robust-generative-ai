@@ -87,3 +87,15 @@ def predict_single_image(model, image_tensor):
         prediction = "PNEUMONIA" if confidence > 0.5 else "NORMAL"
 
     return prediction, confidence
+
+def load_classifier():
+    """Load a previously trained classifier from disk."""
+    import os
+    if not os.path.exists("classifier.pth"):
+        return None
+    model = PneumoniaClassifier().to(DEVICE)
+    model.load_state_dict(
+        torch.load("classifier.pth", map_location=DEVICE)
+    )
+    model.eval()
+    return model

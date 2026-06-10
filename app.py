@@ -8,9 +8,9 @@ from torchvision import transforms
 from PIL import Image
 
 from model.gan               import Generator, Discriminator
-from model.train             import train_gan, NOISE_DIM, DEVICE
+from model.train             import train_gan, NOISE_DIM, DEVICE, load_generator, load_discriminator
 from model.classifier        import PneumoniaClassifier
-from model.train_classifier  import train_classifier, predict_single_image
+from model.train_classifier  import train_classifier, predict_single_image, load_classifier
 from attacks.fgsm            import fgsm_attack
 from attacks.pgd             import pgd_attack
 from defense.defend          import gaussian_denoise, median_filter_defense, detect_adversarial
@@ -484,6 +484,27 @@ with tab1:
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+    # ── Load saved GAN if it exists ──
+        import os
+        if os.path.exists("generator.pth") and "generator" not in st.session_state:
+            st.markdown(f"""
+            <div style="background:{BG3};border:1px solid {BORDER};border-radius:10px;
+                        padding:12px 16px;margin-bottom:12px;">
+                <div class="ms-eyebrow">Saved model found</div>
+                <div style="font-size:12px;color:{TEXT2};margin-top:4px;">
+                    A trained GAN was found on disk. Load it to skip retraining.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("📂  Load Saved GAN", key="load_gan"):
+                gen  = load_generator()
+                disc = load_discriminator()
+                if gen and disc:
+                    st.session_state["generator"]     = gen
+                    st.session_state["discriminator"] = disc
+                    st.success("✅  GAN loaded from disk — skip to Tab 2")
+
         if st.button("🚀  Start GAN Training", key="btn_train_gan"):
             prog = st.progress(0); stat = st.empty()
             def upd(v):
@@ -569,8 +590,35 @@ with tab2:
         </div>
         """, unsafe_allow_html=True)
 
+import os
+if os.path.exists("classifier.pth") and "classifier" not in st.session_state:
+    if st.button("📂  Load Saved Classifier", key="load_clf"):
+        from model.train_classifier import load_classifier
+        clf = load_classifier()
+        st.session_state["classifier"] = clf
+        st.success("✅  Loaded saved classifier from disk")
+
     with ca:
         st.markdown(f'<div style="height:26px;"></div>', unsafe_allow_html=True)
+
+        # ── Load saved classifier if it exists ──
+        import os
+        if os.path.exists("classifier.pth") and "classifier" not in st.session_state:
+            st.markdown(f"""
+            <div style="background:{BG3};border:1px solid {BORDER};border-radius:10px;
+                        padding:12px 16px;margin-bottom:12px;">
+                <div class="ms-eyebrow">Saved model found</div>
+                <div style="font-size:12px;color:{TEXT2};margin-top:4px;">
+                    A trained classifier was found on disk. Load it to skip retraining.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("📂  Load Saved Classifier", key="load_clf"):
+                clf = load_classifier()
+                if clf:
+                    st.session_state["classifier"] = clf
+                    st.success("✅  Classifier loaded — skip to Tab 3")
+
         clf_ep = st.slider("Epochs", 5, 30, 10, key="clf_ep")
         if st.button("🫁  Train Classifier", key="btn_train_clf"):
             prog = st.progress(0); stat = st.empty()
