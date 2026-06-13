@@ -485,7 +485,7 @@ with tab1:
         </div>
         """, unsafe_allow_html=True)
 
-    # ── Load saved GAN if it exists ──
+        # ── Load saved GAN if it exists ──
         import os
         if os.path.exists("generator.pth") and "generator" not in st.session_state:
             st.markdown(f"""
@@ -590,13 +590,6 @@ with tab2:
         </div>
         """, unsafe_allow_html=True)
 
-import os
-if os.path.exists("classifier.pth") and "classifier" not in st.session_state:
-    if st.button("📂  Load Saved Classifier", key="load_clf_btn"):
-        from model.train_classifier import load_classifier
-        clf = load_classifier()
-        st.session_state["classifier"] = clf
-        st.success("✅  Loaded saved classifier from disk")
 
     with ca:
         st.markdown(f'<div style="height:26px;"></div>', unsafe_allow_html=True)
