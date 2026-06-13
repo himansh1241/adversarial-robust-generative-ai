@@ -6,7 +6,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from PIL import Image
-import datetime
+import io, base64, datetime
 
 from model.gan               import Generator, Discriminator
 from model.train             import train_gan, NOISE_DIM, DEVICE
@@ -315,6 +315,38 @@ def diag_card(col, title, pred, conf):
         f'{conf_d:.1%}</b></div></div>',
         unsafe_allow_html=True)
 
+
+def load_classifier():
+    """Load previously trained classifier from disk."""
+    import os
+    if not os.path.exists("classifier.pth"):
+        return None
+    from model.classifier import PneumoniaClassifier
+    model = PneumoniaClassifier().to(DEVICE)
+    model.load_state_dict(torch.load("classifier.pth", map_location=DEVICE))
+    model.eval()
+    return model
+
+def load_generator():
+    """Load previously trained generator from disk."""
+    import os
+    if not os.path.exists("generator.pth"):
+        return None
+    gen = Generator(noise_dim=NOISE_DIM).to(DEVICE)
+    gen.load_state_dict(torch.load("generator.pth", map_location=DEVICE))
+    gen.eval()
+    return gen
+
+def load_discriminator():
+    """Load previously trained discriminator from disk."""
+    import os
+    if not os.path.exists("discriminator.pth"):
+        return None
+    disc = Discriminator().to(DEVICE)
+    disc.load_state_dict(torch.load("discriminator.pth", map_location=DEVICE))
+    disc.eval()
+    return disc
+
 def next_step_btn(label, target_tab):
     """Renders a styled 'next step' button that sets the target tab."""
     st.markdown('<div class="next-btn" style="margin-top:24px;display:flex;justify-content:flex-end;">', unsafe_allow_html=True)
@@ -323,17 +355,18 @@ def next_step_btn(label, target_tab):
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
+
 # ─────────────────────────────────────────────────────────────────────
 # Header
 # ─────────────────────────────────────────────────────────────────────
 hc1, hc2 = st.columns([7, 1])
 with hc1:
     st.markdown(f"""
-    <div style="padding:20px 0 14px;">
+    <div style="padding:36px 0 14px;">
         <div style="display:flex;align-items:center;gap:16px;">
             <div style="background:linear-gradient(135deg,{ACCENT_DK},{ACCENT});
                         border-radius:14px;padding:12px 15px;font-size:24px;
-                        box-shadow:0 4px 18px {GLOW};flex-shrink:0;">🛡️</div>
+                        box-shadow:0 4px 18px {GLOW};flex-shrink:0;">🩺</div>
             <div>
                 <div style="font-size:26px;font-weight:700;color:{TEXT1};
                             letter-spacing:-0.03em;line-height:1.15;">MedShield AI</div>
@@ -357,12 +390,21 @@ with hc1:
     """, unsafe_allow_html=True)
 
 with hc2:
-    st.markdown('<div style="padding-top:32px;display:flex;justify-content:flex-end;">', unsafe_allow_html=True)
-    st.markdown('<div class="theme-btn">', unsafe_allow_html=True)
-    if st.button("☀️ Light" if dark else "🌙 Dark", key="theme_toggle"):
-        st.session_state["dark_mode"] = not dark
-        st.rerun()
-    st.markdown('</div></div>', unsafe_allow_html=True)
+    st.markdown(f'''<div style="padding-top:40px;display:flex;justify-content:flex-end;">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
+                  background:{BG2};border:1px solid {BORDER2};border-radius:20px;
+                  padding:6px 14px;font-size:12px;font-weight:500;color:{TEXT2};">
+        <span>{"🌙" if dark else "☀️"}</span>
+        <span>{"Dark" if dark else "Light"}</span>
+    </label></div>''', unsafe_allow_html=True)
+    theme_check = st.checkbox(
+        "Dark mode",
+        value=dark,
+        key="theme_check",
+        label_visibility="collapsed"
+    )
+    if theme_check != dark:
+        st.session_state["dark_mode"] = theme_check
 
 st.markdown(f'<div style="height:1px;background:linear-gradient(90deg,{ACCENT}55,{BORDER},transparent);margin-bottom:4px;"></div>', unsafe_allow_html=True)
 
@@ -473,6 +515,22 @@ with tab1:
             </div>
         </div>
         """, unsafe_allow_html=True)
+        import os
+        if os.path.exists("generator.pth") and "generator" not in st.session_state:
+            st.markdown(f'''<div style="background:{BG3};border:1px solid {BORDER};
+                border-radius:10px;padding:12px 16px;margin-bottom:12px;">
+                <div class="ms-eyebrow">Saved model found</div>
+                <div style="font-size:12px;color:{TEXT2};margin-top:4px;">
+                    A trained GAN was found on disk. Load it to skip retraining.
+                </div></div>''', unsafe_allow_html=True)
+            if st.button("📂  Load Saved GAN", key="load_gan_btn"):
+                gen  = load_generator()
+                disc = load_discriminator()
+                if gen and disc:
+                    st.session_state["generator"]     = gen
+                    st.session_state["discriminator"] = disc
+                    st.success("✅  GAN loaded from disk")
+
         if st.button("🚀  Start GAN Training", key="btn_train_gan"):
             prog = st.progress(0); stat = st.empty()
             def upd(v):
@@ -562,6 +620,19 @@ with tab2:
 
     with ca:
         st.markdown(f'<div style="height:26px;"></div>', unsafe_allow_html=True)
+        import os
+        if os.path.exists("classifier.pth") and "classifier" not in st.session_state:
+            st.markdown(f'''<div style="background:{BG3};border:1px solid {BORDER};
+                border-radius:10px;padding:12px 16px;margin-bottom:12px;">
+                <div class="ms-eyebrow">Saved model found</div>
+                <div style="font-size:12px;color:{TEXT2};margin-top:4px;">
+                    A trained classifier was found on disk. Load it to skip retraining.
+                </div></div>''', unsafe_allow_html=True)
+            if st.button("📂  Load Saved Classifier", key="load_clf_btn"):
+                clf = load_classifier()
+                if clf:
+                    st.session_state["classifier"] = clf
+                    st.success("✅  Classifier loaded from disk")
         clf_ep = st.slider("Epochs", 5, 30, 10, key="clf_ep")
         if st.button("🫁  Train Classifier", key="btn_train_clf"):
             prog = st.progress(0); stat = st.empty()
@@ -798,7 +869,7 @@ with tab4:
                 <div style="height:220px;border:1.5px dashed {BORDER2};border-radius:12px;
                             display:flex;align-items:center;justify-content:center;">
                     <div style="text-align:center;color:{TEXT3};">
-                        <div style="font-size:30px;margin-bottom:8px;">🛡️</div>
+                        <div style="font-size:30px;margin-bottom:8px;">🩺</div>
                         <div style="font-size:13px;">Click "Apply Defense" to see results</div>
                     </div>
                 </div>
