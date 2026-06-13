@@ -6,7 +6,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from PIL import Image
-import io, base64, datetime
 
 from model.gan               import Generator, Discriminator
 from model.train             import train_gan, NOISE_DIM, DEVICE
@@ -93,7 +92,7 @@ html,body,[class*="css"]{{font-family:'Inter',sans-serif;}}
     padding:0 2.5rem 3rem 2.5rem !important;
     max-width:1280px;
     /* push content down enough so header isn't clipped */
-    padding-top:1.2rem !important;
+    padding-top:3.5rem !important;
 }}
 header[data-testid="stHeader"]{{background:{BG} !important;border-bottom:1px solid {BORDER};}}
 [data-testid="stSidebar"]{{background:{BG2} !important;border-right:1px solid {BORDER};}}
@@ -241,12 +240,16 @@ div[data-baseweb="select"]>div{{
 .ms-mono{{font-family:'JetBrains Mono',monospace;font-size:12px;color:{TEXT2};}}
 .diag-normal{{
     display:inline-flex;align-items:center;gap:7px;
-    background:#022c22;color:#34d399;border:1px solid #065f46;
+    background:{"#022c22" if dark else "#dcfce7"};
+    color:{"#34d399" if dark else "#16a34a"};
+    border:1px solid {"#065f46" if dark else "#86efac"};
     border-radius:25px;padding:8px 22px;font-size:14px;font-weight:700;letter-spacing:0.06em;
 }}
 .diag-pneumonia{{
     display:inline-flex;align-items:center;gap:7px;
-    background:#2d0a0a;color:#f87171;border:1px solid #7f1d1d;
+    background:{"#2d0a0a" if dark else "#fee2e2"};
+    color:{"#f87171" if dark else "#dc2626"};
+    border:1px solid {"#7f1d1d" if dark else "#fca5a5"};
     border-radius:25px;padding:8px 22px;font-size:14px;font-weight:700;letter-spacing:0.06em;
 }}
 .score-bar-track{{height:6px;background:{BORDER};border-radius:6px;margin:8px 0 4px;}}
@@ -315,37 +318,34 @@ def diag_card(col, title, pred, conf):
         f'{conf_d:.1%}</b></div></div>',
         unsafe_allow_html=True)
 
-
 def load_classifier():
-    """Load previously trained classifier from disk."""
     import os
     if not os.path.exists("classifier.pth"):
         return None
     from model.classifier import PneumoniaClassifier
-    model = PneumoniaClassifier().to(DEVICE)
-    model.load_state_dict(torch.load("classifier.pth", map_location=DEVICE))
-    model.eval()
-    return model
+    m = PneumoniaClassifier().to(DEVICE)
+    m.load_state_dict(torch.load("classifier.pth", map_location=DEVICE))
+    m.eval()
+    return m
 
 def load_generator():
-    """Load previously trained generator from disk."""
     import os
     if not os.path.exists("generator.pth"):
         return None
-    gen = Generator(noise_dim=NOISE_DIM).to(DEVICE)
-    gen.load_state_dict(torch.load("generator.pth", map_location=DEVICE))
-    gen.eval()
-    return gen
+    g = Generator(noise_dim=NOISE_DIM).to(DEVICE)
+    g.load_state_dict(torch.load("generator.pth", map_location=DEVICE))
+    g.eval()
+    return g
 
 def load_discriminator():
-    """Load previously trained discriminator from disk."""
     import os
     if not os.path.exists("discriminator.pth"):
         return None
-    disc = Discriminator().to(DEVICE)
-    disc.load_state_dict(torch.load("discriminator.pth", map_location=DEVICE))
-    disc.eval()
-    return disc
+    d = Discriminator().to(DEVICE)
+    d.load_state_dict(torch.load("discriminator.pth", map_location=DEVICE))
+    d.eval()
+    return d
+
 
 def next_step_btn(label, target_tab):
     """Renders a styled 'next step' button that sets the target tab."""
@@ -359,106 +359,105 @@ def next_step_btn(label, target_tab):
 # ─────────────────────────────────────────────────────────────────────
 # Header
 # ─────────────────────────────────────────────────────────────────────
-hc1, hc2 = st.columns([7, 1])
-with hc1:
+# ── Header row: logo left, theme toggle right ────────────────────────
+_hc1, _hc2 = st.columns([8, 1])
+with _hc1:
     st.markdown(f"""
-    <div style="padding:36px 0 14px;">
-        <div style="display:flex;align-items:center;gap:16px;">
-            <div style="background:linear-gradient(135deg,{ACCENT_DK},{ACCENT});
-                        border-radius:14px;padding:12px 15px;font-size:24px;
-                        box-shadow:0 4px 18px {GLOW};flex-shrink:0;">🩺</div>
-            <div>
-                <div style="font-size:26px;font-weight:700;color:{TEXT1};
-                            letter-spacing:-0.03em;line-height:1.15;">MedShield AI</div>
-                <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-                    <span class="hero-pulse"></span>
-                    <span style="font-size:11px;color:{TEXT3};letter-spacing:0.05em;
-                                 text-transform:uppercase;">
-                        Adversarially Robust Generative AI · Chest X-Ray Analysis
-                    </span>
-                </div>
+    <div style="display:flex;align-items:center;gap:16px;padding-bottom:10px;">
+        <div style="background:linear-gradient(135deg,{ACCENT_DK},{ACCENT});
+                    border-radius:14px;padding:13px 16px;font-size:26px;line-height:1;
+                    box-shadow:0 4px 18px {GLOW};flex-shrink:0;">🩺</div>
+        <div>
+            <div style="font-size:26px;font-weight:700;color:{TEXT1};
+                        letter-spacing:-0.03em;line-height:1.15;">MedShield AI</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:5px;">
+                <span class="hero-pulse"></span>
+                <span style="font-size:11px;color:{TEXT3};letter-spacing:0.05em;
+                             text-transform:uppercase;">
+                    Adversarially Robust Generative AI · Chest X-Ray Analysis
+                </span>
             </div>
         </div>
-        <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
-            <span class="ms-tag">PyTorch</span>
-            <span class="ms-tag">DCGAN</span>
-            <span class="ms-tag">FGSM · PGD</span>
-            <span class="ms-tag">CNN Classifier</span>
-            <span class="ms-tag">Apple M4 · MPS</span>
-        </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;padding-bottom:14px;">
+        <span class="ms-tag">PyTorch</span>
+        <span class="ms-tag">DCGAN</span>
+        <span class="ms-tag">FGSM · PGD</span>
+        <span class="ms-tag">CNN Classifier</span>
+        <span class="ms-tag">Apple M4 · MPS</span>
     </div>
     """, unsafe_allow_html=True)
 
-with hc2:
-    st.markdown(f'''<div style="padding-top:40px;display:flex;justify-content:flex-end;">
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
-                  background:{BG2};border:1px solid {BORDER2};border-radius:20px;
-                  padding:6px 14px;font-size:12px;font-weight:500;color:{TEXT2};">
-        <span>{"🌙" if dark else "☀️"}</span>
-        <span>{"Dark" if dark else "Light"}</span>
-    </label></div>''', unsafe_allow_html=True)
-    theme_check = st.checkbox(
-        "Dark mode",
-        value=dark,
-        key="theme_check",
-        label_visibility="collapsed"
-    )
-    if theme_check != dark:
-        st.session_state["dark_mode"] = theme_check
+with _hc2:
+    # Theme toggle — stores value in session_state so models survive the rerun
+    # All trained models are already in session_state so rerun only changes CSS
+    st.markdown('<div style="padding-top:8px;display:flex;justify-content:flex-end;">', unsafe_allow_html=True)
+    st.markdown('<div class="theme-btn">', unsafe_allow_html=True)
+    if st.button("☀️ Light" if dark else "🌙 Dark", key="theme_toggle"):
+        st.session_state["dark_mode"] = not dark
+        st.rerun()
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
-st.markdown(f'<div style="height:1px;background:linear-gradient(90deg,{ACCENT}55,{BORDER},transparent);margin-bottom:4px;"></div>', unsafe_allow_html=True)
+st.markdown(f'<div style="height:1px;background:linear-gradient(90deg,{ACCENT}66,{BORDER},transparent);margin-bottom:6px;"></div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────
 # Sidebar
 # ─────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown(f'<div style="font-size:15px;font-weight:700;color:{TEXT1};margin-bottom:2px;">Configuration</div>', unsafe_allow_html=True)
-    st.markdown(f'<div style="font-size:11px;color:{TEXT3};margin-bottom:20px;">Set parameters before each step</div>', unsafe_allow_html=True)
-
-    st.markdown(f'<div class="ms-eyebrow">GAN Training</div>', unsafe_allow_html=True)
-    epochs = st.slider("Epochs", 5, 50, 10, help="More epochs → better quality generated X-rays")
-
-    st.markdown(f'<hr style="border:none;border-top:1px solid {BORDER};margin:18px 0 14px;">', unsafe_allow_html=True)
-    st.markdown(f'<div class="ms-eyebrow">Attack Settings</div>', unsafe_allow_html=True)
-    epsilon   = st.slider("Strength ε", 0.01, 0.5, 0.1)
-    pgd_steps = st.slider("PGD iterations", 5, 50, 20)
-
-    st.markdown(f'<hr style="border:none;border-top:1px solid {BORDER};margin:18px 0 14px;">', unsafe_allow_html=True)
-    st.markdown(f'<div class="ms-eyebrow">Defense</div>', unsafe_allow_html=True)
-    defense = st.selectbox("Method", ["Gaussian denoising", "Median filter", "Both"])
-
-    st.markdown(f'<hr style="border:none;border-top:1px solid {BORDER};margin:18px 0 14px;">', unsafe_allow_html=True)
-    st.markdown(f'<div class="ms-eyebrow" style="margin-bottom:12px;">Pipeline</div>', unsafe_allow_html=True)
-
-    steps_info = [
-        ("generator"   in st.session_state, "01", "GAN trained"),
-        ("classifier"  in st.session_state, "02", "Classifier trained"),
-        ("adv_img"     in st.session_state, "03", "Attack executed"),
-        ("defended"    in st.session_state, "04", "Defense applied"),
-    ]
-    rows = ""
-    for done, num, label in steps_info:
-        nb  = ACCENT_DK if done else BORDER
-        nt  = "#fff"    if done else TEXT3
-        lt  = "#34d399" if done else TEXT2
-        rows += (f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
-                 f'<div style="width:22px;height:22px;border-radius:6px;background:{nb};'
-                 f'display:flex;align-items:center;justify-content:center;'
-                 f'font-size:9px;font-weight:700;color:{nt};flex-shrink:0;">{num}</div>'
-                 f'<span style="font-size:13px;color:{lt};">{label}</span></div>')
-    st.markdown(rows, unsafe_allow_html=True)
-
-    st.markdown(f'<hr style="border:none;border-top:1px solid {BORDER};margin:18px 0 14px;">', unsafe_allow_html=True)
+    # ── Title + device ───────────────────────────────────────────────
+    _dev = ("⚡ MPS (M4)" if torch.backends.mps.is_available()
+            else "🔥 CUDA" if torch.cuda.is_available() else "💻 CPU")
     st.markdown(f"""
-    <div style="background:{BG3};border:1px solid {BORDER};border-radius:10px;padding:14px 16px;">
-        <div class="ms-eyebrow" style="margin-bottom:6px;">Device</div>
-        <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:{ACCENT};">
-            {"⚡ Apple MPS (M4)" if torch.backends.mps.is_available()
-             else "🔥 CUDA GPU"   if torch.cuda.is_available()
-             else "💻 CPU"}
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid {BORDER};">
+        <div>
+            <div style="font-size:14px;font-weight:700;color:{TEXT1};">Configuration</div>
+            <div style="font-size:10px;color:{TEXT3};margin-top:2px;">Set before each step</div>
         </div>
+        <div style="background:{BG3};border:1px solid {BORDER};border-radius:8px;
+                    padding:4px 9px;font-family:JetBrains Mono,monospace;
+                    font-size:10px;font-weight:600;color:{ACCENT};">{_dev}</div>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── GAN ──────────────────────────────────────────────────────────
+    st.markdown(f'<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{ACCENT};margin-bottom:4px;">GAN Training</div>', unsafe_allow_html=True)
+    epochs = st.slider("Epochs", 5, 50, 10)
+
+    # ── Attack ───────────────────────────────────────────────────────
+    st.markdown(f'<div style="height:1px;background:{BORDER};margin:10px 0 8px;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{ACCENT};margin-bottom:4px;">Attack</div>', unsafe_allow_html=True)
+    epsilon   = st.slider("Strength ε", 0.01, 0.5, 0.1)
+    pgd_steps = st.slider("PGD steps", 5, 50, 20)
+
+    # ── Defense ──────────────────────────────────────────────────────
+    st.markdown(f'<div style="height:1px;background:{BORDER};margin:10px 0 8px;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{ACCENT};margin-bottom:4px;">Defense</div>', unsafe_allow_html=True)
+    defense = st.selectbox("Method", ["Gaussian denoising", "Median filter", "Both"])
+
+    # ── Pipeline status ───────────────────────────────────────────────
+    st.markdown(f'<div style="height:1px;background:{BORDER};margin:10px 0 10px;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:{ACCENT};margin-bottom:8px;">Pipeline</div>', unsafe_allow_html=True)
+    _steps = [
+        ("generator"  in st.session_state, "01", "GAN trained"),
+        ("classifier" in st.session_state, "02", "Classifier ready"),
+        ("adv_img"    in st.session_state, "03", "Attack run"),
+        ("defended"   in st.session_state, "04", "Defense applied"),
+    ]
+    _pipeline_html = ""
+    for _done, _num, _lbl in _steps:
+        _nb = ACCENT_DK if _done else BORDER
+        _nt = "#ffffff"  if _done else TEXT3
+        _lt = "#34d399"  if _done else TEXT2
+        _ck = "✓"        if _done else _num
+        _pipeline_html += (
+            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+            f'<div style="width:20px;height:20px;border-radius:5px;background:{_nb};'
+            f'display:flex;align-items:center;justify-content:center;flex-shrink:0;'
+            f'font-size:9px;font-weight:700;color:{_nt};">{_ck}</div>'
+            f'<span style="font-size:12px;color:{_lt};">{_lbl}</span></div>'
+        )
+    st.markdown(_pipeline_html, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────
 # Tabs
@@ -515,20 +514,19 @@ with tab1:
             </div>
         </div>
         """, unsafe_allow_html=True)
-        import os
-        if os.path.exists("generator.pth") and "generator" not in st.session_state:
-            st.markdown(f'''<div style="background:{BG3};border:1px solid {BORDER};
-                border-radius:10px;padding:12px 16px;margin-bottom:12px;">
-                <div class="ms-eyebrow">Saved model found</div>
-                <div style="font-size:12px;color:{TEXT2};margin-top:4px;">
-                    A trained GAN was found on disk. Load it to skip retraining.
-                </div></div>''', unsafe_allow_html=True)
+        import os as _os1
+        if _os1.path.exists("generator.pth") and "generator" not in st.session_state:
+            st.markdown(f'<div style="background:{BG3};border:1px solid {BORDER};'
+                f'border-radius:10px;padding:10px 14px;margin-bottom:10px;">'
+                f'<div style="font-size:9px;font-weight:700;letter-spacing:0.1em;'
+                f'text-transform:uppercase;color:{ACCENT};margin-bottom:3px;">Saved model found</div>'
+                f'<div style="font-size:11px;color:{TEXT2};">Load to skip retraining</div></div>',
+                unsafe_allow_html=True)
             if st.button("📂  Load Saved GAN", key="load_gan_btn"):
-                gen  = load_generator()
-                disc = load_discriminator()
-                if gen and disc:
-                    st.session_state["generator"]     = gen
-                    st.session_state["discriminator"] = disc
+                _gen = load_generator(); _disc = load_discriminator()
+                if _gen and _disc:
+                    st.session_state["generator"]     = _gen
+                    st.session_state["discriminator"] = _disc
                     st.success("✅  GAN loaded from disk")
 
         if st.button("🚀  Start GAN Training", key="btn_train_gan"):
@@ -620,19 +618,20 @@ with tab2:
 
     with ca:
         st.markdown(f'<div style="height:26px;"></div>', unsafe_allow_html=True)
-        import os
-        if os.path.exists("classifier.pth") and "classifier" not in st.session_state:
-            st.markdown(f'''<div style="background:{BG3};border:1px solid {BORDER};
-                border-radius:10px;padding:12px 16px;margin-bottom:12px;">
-                <div class="ms-eyebrow">Saved model found</div>
-                <div style="font-size:12px;color:{TEXT2};margin-top:4px;">
-                    A trained classifier was found on disk. Load it to skip retraining.
-                </div></div>''', unsafe_allow_html=True)
+        import os as _os2
+        if _os2.path.exists("classifier.pth") and "classifier" not in st.session_state:
+            st.markdown(f'<div style="background:{BG3};border:1px solid {BORDER};'
+                f'border-radius:10px;padding:10px 14px;margin-bottom:10px;">'
+                f'<div style="font-size:9px;font-weight:700;letter-spacing:0.1em;'
+                f'text-transform:uppercase;color:{ACCENT};margin-bottom:3px;">Saved model found</div>'
+                f'<div style="font-size:11px;color:{TEXT2};">Load to skip retraining</div></div>',
+                unsafe_allow_html=True)
             if st.button("📂  Load Saved Classifier", key="load_clf_btn"):
-                clf = load_classifier()
-                if clf:
-                    st.session_state["classifier"] = clf
+                _clf = load_classifier()
+                if _clf:
+                    st.session_state["classifier"] = _clf
                     st.success("✅  Classifier loaded from disk")
+
         clf_ep = st.slider("Epochs", 5, 30, 10, key="clf_ep")
         if st.button("🫁  Train Classifier", key="btn_train_clf"):
             prog = st.progress(0); stat = st.empty()
@@ -869,7 +868,7 @@ with tab4:
                 <div style="height:220px;border:1.5px dashed {BORDER2};border-radius:12px;
                             display:flex;align-items:center;justify-content:center;">
                     <div style="text-align:center;color:{TEXT3};">
-                        <div style="font-size:30px;margin-bottom:8px;">🩺</div>
+                        <div style="font-size:30px;margin-bottom:8px;">🛡️</div>
                         <div style="font-size:13px;">Click "Apply Defense" to see results</div>
                     </div>
                 </div>
