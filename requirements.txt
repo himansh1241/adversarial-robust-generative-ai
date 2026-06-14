@@ -8,3 +8,4 @@ pillow
 scikit-learn
 torchattacks
 grad-cam
+pytorch-grad-cam
