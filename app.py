@@ -79,8 +79,6 @@ def setup_dataset():
     st.success("✅ Dataset ready!")
     st.rerun()
 
-setup_dataset()
-
 # ─────────────────────────────────────────────────────────────────────
 # Page config
 # ─────────────────────────────────────────────────────────────────────
@@ -89,6 +87,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+setup_dataset()
 
 # ─────────────────────────────────────────────────────────────────────
 # Session state bootstrap
