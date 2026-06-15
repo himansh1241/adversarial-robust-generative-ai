@@ -18,11 +18,10 @@ from defense.defend          import gaussian_denoise, median_filter_defense, det
 import os
 
 def setup_dataset():
-    """Auto-download chest X-ray dataset on first run (for cloud deployment)."""
+    """Auto-download chest X-ray dataset on first run."""
     if os.path.exists("data/chest_xray/train"):
-        return  # already downloaded, skip
+        return  # already downloaded
 
-    # Read Kaggle credentials from Streamlit secrets
     kaggle_user = st.secrets.get("KAGGLE_USERNAME", "")
     kaggle_key  = st.secrets.get("KAGGLE_KEY", "")
 
@@ -30,27 +29,42 @@ def setup_dataset():
         st.warning("Dataset not found. Add KAGGLE_USERNAME and KAGGLE_KEY to Streamlit secrets.")
         st.stop()
 
-    # Write kaggle.json temporarily
-    os.makedirs(os.path.expanduser("~/.kaggle"), exist_ok=True)
-    with open(os.path.expanduser("~/.kaggle/kaggle.json"), "w") as f:
+    # Write kaggle credentials
+    kaggle_dir = os.path.expanduser("~/.kaggle")
+    os.makedirs(kaggle_dir, exist_ok=True)
+    with open(os.path.join(kaggle_dir, "kaggle.json"), "w") as f:
         import json
         json.dump({"username": kaggle_user, "key": kaggle_key}, f)
-    os.chmod(os.path.expanduser("~/.kaggle/kaggle.json"), 0o600)
+    os.chmod(os.path.join(kaggle_dir, "kaggle.json"), 0o600)
 
-    # Download and unzip
     with st.spinner("Downloading dataset for first time setup (~400MB)... please wait."):
         import subprocess, sys
-        subprocess.run([sys.executable, "-m", "pip", "install", "kaggle", "-q"], check=True)
-        subprocess.run([
-            sys.executable, "-m", "kaggle.cli",
-            "datasets", "download",
-            "-d", "paultimothymooney/chest-xray-pneumonia",
-            "--unzip", "-p", "data/"
-        ], check=True)
 
-    st.success("Dataset ready!")
+        # Install kaggle to user directory to avoid permission issues
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "kaggle", "--user", "-q"],
+            check=True
+        )
+
+        # Add user bin to PATH so kaggle command is found
+        import site
+        user_bin = os.path.join(site.getusersitepackages(), "..", "..", "bin")
+        user_bin = os.path.normpath(user_bin)
+        env = os.environ.copy()
+        env["PATH"] = user_bin + ":" + env.get("PATH", "")
+
+        # Download dataset
+        subprocess.run(
+            [sys.executable, "-m", "kaggle", "datasets", "download",
+             "-d", "paultimothymooney/chest-xray-pneumonia",
+             "--unzip", "-p", "data/"],
+            check=True,
+            env=env
+        )
+
+    st.success("✅ Dataset downloaded successfully!")
     st.rerun()
-
+    
 setup_dataset()
 
 # ─────────────────────────────────────────────────────────────────────
