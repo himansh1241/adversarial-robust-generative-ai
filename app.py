@@ -15,6 +15,38 @@ from attacks.fgsm            import fgsm_attack
 from attacks.pgd             import pgd_attack
 from defense.defend          import gaussian_denoise, median_filter_defense, detect_adversarial
 
+import os
+
+def setup_dataset():
+    """Auto-download chest X-ray dataset on first run (for cloud deployment)."""
+    if os.path.exists("data/chest_xray/train"):
+        return  # already downloaded, skip
+
+    # Read Kaggle credentials from Streamlit secrets
+    kaggle_user = st.secrets.get("KAGGLE_USERNAME", "")
+    kaggle_key  = st.secrets.get("KAGGLE_KEY", "")
+
+    if not kaggle_user or not kaggle_key:
+        st.warning("Dataset not found. Add KAGGLE_USERNAME and KAGGLE_KEY to Streamlit secrets.")
+        st.stop()
+
+    # Write kaggle.json temporarily
+    os.makedirs(os.path.expanduser("~/.kaggle"), exist_ok=True)
+    with open(os.path.expanduser("~/.kaggle/kaggle.json"), "w") as f:
+        import json
+        json.dump({"username": kaggle_user, "key": kaggle_key}, f)
+    os.chmod(os.path.expanduser("~/.kaggle/kaggle.json"), 0o600)
+
+    # Download and unzip
+    with st.spinner("Downloading dataset for first time setup (~400MB)... please wait."):
+        os.system("pip install kaggle -q")
+        os.system("kaggle datasets download -d paultimothymooney/chest-xray-pneumonia --unzip -p data/")
+
+    st.success("Dataset ready!")
+    st.rerun()
+
+setup_dataset()
+
 # ─────────────────────────────────────────────────────────────────────
 # Page config
 # ─────────────────────────────────────────────────────────────────────
