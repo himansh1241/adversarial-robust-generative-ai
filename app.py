@@ -18,53 +18,67 @@ from defense.defend          import gaussian_denoise, median_filter_defense, det
 import os
 
 def setup_dataset():
-    """Auto-download chest X-ray dataset on first run."""
+    """Auto-download chest X-ray dataset using Kaggle API directly."""
     if os.path.exists("data/chest_xray/train"):
-        return  # already downloaded
+        return
 
     kaggle_user = st.secrets.get("KAGGLE_USERNAME", "")
     kaggle_key  = st.secrets.get("KAGGLE_KEY", "")
 
     if not kaggle_user or not kaggle_key:
-        st.warning("Dataset not found. Add KAGGLE_USERNAME and KAGGLE_KEY to Streamlit secrets.")
+        st.warning("Add KAGGLE_USERNAME and KAGGLE_KEY to Streamlit secrets.")
         st.stop()
 
-    # Write kaggle credentials
-    kaggle_dir = os.path.expanduser("~/.kaggle")
-    os.makedirs(kaggle_dir, exist_ok=True)
-    with open(os.path.join(kaggle_dir, "kaggle.json"), "w") as f:
-        import json
-        json.dump({"username": kaggle_user, "key": kaggle_key}, f)
-    os.chmod(os.path.join(kaggle_dir, "kaggle.json"), 0o600)
+    with st.spinner("📥 Downloading chest X-ray dataset (~400MB) — first run only, please wait..."):
+        import requests, zipfile, io
 
-    with st.spinner("Downloading dataset for first time setup (~400MB)... please wait."):
-        import subprocess, sys
+        url = "https://www.kaggle.com/api/v1/datasets/download/paultimothymooney/chest-xray-pneumonia"
 
-        # Install kaggle to user directory to avoid permission issues
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", "kaggle", "--user", "-q"],
-            check=True
+        response = requests.get(
+            url,
+            auth=(kaggle_user, kaggle_key),
+            stream=True,
+            timeout=300
         )
 
-        # Add user bin to PATH so kaggle command is found
-        import site
-        user_bin = os.path.join(site.getusersitepackages(), "..", "..", "bin")
-        user_bin = os.path.normpath(user_bin)
-        env = os.environ.copy()
-        env["PATH"] = user_bin + ":" + env.get("PATH", "")
+        if response.status_code != 200:
+            st.error(f"Failed to download dataset. Status: {response.status_code}. Check your Kaggle credentials in Streamlit secrets.")
+            st.stop()
 
-        # Download dataset
-        subprocess.run(
-            [sys.executable, "-m", "kaggle", "datasets", "download",
-             "-d", "paultimothymooney/chest-xray-pneumonia",
-             "--unzip", "-p", "data/"],
-            check=True,
-            env=env
-        )
+        # Download with progress
+        total = int(response.headers.get("content-length", 0))
+        downloaded = 0
+        chunks = []
+        progress = st.progress(0)
+        status   = st.empty()
 
-    st.success("✅ Dataset downloaded successfully!")
+        for chunk in response.iter_content(chunk_size=1024 * 1024):
+            if chunk:
+                chunks.append(chunk)
+                downloaded += len(chunk)
+                if total:
+                    pct = int(downloaded / total * 100)
+                    progress.progress(pct)
+                    status.markdown(
+                        f'<div style="font-size:12px;color:gray;">'
+                        f'Downloaded {downloaded // (1024*1024)} MB'
+                        f'{f" of {total // (1024*1024)} MB" if total else ""}'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+
+        progress.empty()
+        status.empty()
+
+        # Unzip
+        with st.spinner("📦 Extracting files..."):
+            os.makedirs("data", exist_ok=True)
+            z = zipfile.ZipFile(io.BytesIO(b"".join(chunks)))
+            z.extractall("data/")
+
+    st.success("✅ Dataset ready!")
     st.rerun()
-    
+
 setup_dataset()
 
 # ─────────────────────────────────────────────────────────────────────
