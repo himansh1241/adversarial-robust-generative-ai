@@ -39,8 +39,14 @@ def setup_dataset():
 
     # Download and unzip
     with st.spinner("Downloading dataset for first time setup (~400MB)... please wait."):
-        os.system("pip install kaggle -q")
-        os.system("kaggle datasets download -d paultimothymooney/chest-xray-pneumonia --unzip -p data/")
+        import subprocess, sys
+        subprocess.run([sys.executable, "-m", "pip", "install", "kaggle", "-q"], check=True)
+        subprocess.run([
+            sys.executable, "-m", "kaggle.cli",
+            "datasets", "download",
+            "-d", "paultimothymooney/chest-xray-pneumonia",
+            "--unzip", "-p", "data/"
+        ], check=True)
 
     st.success("Dataset ready!")
     st.rerun()
