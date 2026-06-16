@@ -1,59 +1,68 @@
 import streamlit as st
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
 import os
+import sys
 
+# ── Must be first Streamlit call ──────────────────────────────────────
+st.set_page_config(
+    page_title="MedShield AI",
+    page_icon="🩺",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ── Dataset auto-download ─────────────────────────────────────────────
 def setup_dataset():
-    """Auto-download chest X-ray dataset using Kaggle API directly."""
     if os.path.exists("data/chest_xray/train"):
         return
-
     kaggle_user = st.secrets.get("KAGGLE_USERNAME", "")
     kaggle_key  = st.secrets.get("KAGGLE_KEY", "")
-
     if not kaggle_user or not kaggle_key:
         st.warning("Add KAGGLE_USERNAME and KAGGLE_KEY to Streamlit secrets.")
         st.stop()
-
     import requests, zipfile, io
-
-    st.info("📥 First run — downloading chest X-ray dataset (~400MB). This takes 2–3 minutes and happens once only.")
+    st.info("📥 First run — downloading dataset (~400MB). Please wait 2-3 minutes...")
     prog  = st.progress(0)
     label = st.empty()
-
-    url = "https://www.kaggle.com/api/v1/datasets/download/paultimothymooney/chest-xray-pneumonia"
-    response = requests.get(url, auth=(kaggle_user, kaggle_key), stream=True, timeout=600)
-
-    if response.status_code != 200:
-        st.error(f"Download failed (status {response.status_code}). Check KAGGLE_USERNAME and KAGGLE_KEY in Streamlit secrets.")
+    url   = "https://www.kaggle.com/api/v1/datasets/download/paultimothymooney/chest-xray-pneumonia"
+    r     = requests.get(url, auth=(kaggle_user, kaggle_key), stream=True, timeout=600)
+    if r.status_code != 200:
+        st.error(f"Download failed (status {r.status_code}). Check your Kaggle credentials.")
         st.stop()
-
-    total      = int(response.headers.get("content-length", 0))
-    downloaded = 0
-    chunks     = []
-
-    for chunk in response.iter_content(chunk_size=1024 * 1024):
+    total = int(r.headers.get("content-length", 0))
+    done  = 0
+    buf   = []
+    for chunk in r.iter_content(chunk_size=1024*1024):
         if chunk:
-            chunks.append(chunk)
-            downloaded += len(chunk)
-            pct = int(downloaded / total * 100) if total else 0
+            buf.append(chunk)
+            done += len(chunk)
+            pct   = int(done/total*100) if total else 0
             prog.progress(min(pct, 99))
-            label.caption(f"Downloaded {downloaded // (1024*1024)} MB{f' of {total // (1024*1024)} MB' if total else ''}...")
-
-    prog.progress(100)
-    label.caption("Extracting files...")
+            label.caption(f"Downloaded {done//(1024*1024)} MB...")
     os.makedirs("data", exist_ok=True)
-    zipfile.ZipFile(io.BytesIO(b"".join(chunks))).extractall("data/")
-    prog.empty()
-    label.empty()
-    st.success("✅ Dataset ready! Reloading...")
+    zipfile.ZipFile(io.BytesIO(b"".join(buf))).extractall("data/")
+    prog.empty(); label.empty()
+    st.success("✅ Dataset ready!")
     st.rerun()
 
-# ─────────────────────────────────────────────────────────────────────
-# Page config
-# ─────────────────────────────────────────────────────────────────────
+setup_dataset()
+
+# ── All heavy imports AFTER set_page_config ───────────────────────────
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import torch
+import numpy as np
+from torchvision import transforms
+from PIL import Image
+
+from model.gan              import Generator, Discriminator
+from model.train            import train_gan, NOISE_DIM, DEVICE
+from model.classifier       import PneumoniaClassifier
+from model.train_classifier import train_classifier, predict_single_image
+from attacks.fgsm           import fgsm_attack
+from attacks.pgd            import pgd_attack
+from defense.defend         import gaussian_denoise, median_filter_defense, detect_adversarial
+
 st.set_page_config(
     page_title="MedShield AI",
     page_icon="🩺",
