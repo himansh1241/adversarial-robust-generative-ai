@@ -1,19 +1,7 @@
 import streamlit as st
-import torch
-import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from torchvision import transforms
-from PIL import Image
-
-from model.gan               import Generator, Discriminator
-from model.train             import train_gan, NOISE_DIM, DEVICE
-from model.classifier        import PneumoniaClassifier
-from model.train_classifier  import train_classifier, predict_single_image
-from attacks.fgsm            import fgsm_attack
-from attacks.pgd             import pgd_attack
-from defense.defend          import gaussian_denoise, median_filter_defense, detect_adversarial
 
 import os
 
@@ -29,54 +17,38 @@ def setup_dataset():
         st.warning("Add KAGGLE_USERNAME and KAGGLE_KEY to Streamlit secrets.")
         st.stop()
 
-    with st.spinner("📥 Downloading chest X-ray dataset (~400MB) — first run only, please wait..."):
-        import requests, zipfile, io
+    import requests, zipfile, io
 
-        url = "https://www.kaggle.com/api/v1/datasets/download/paultimothymooney/chest-xray-pneumonia"
+    st.info("📥 First run — downloading chest X-ray dataset (~400MB). This takes 2–3 minutes and happens once only.")
+    prog  = st.progress(0)
+    label = st.empty()
 
-        response = requests.get(
-            url,
-            auth=(kaggle_user, kaggle_key),
-            stream=True,
-            timeout=300
-        )
+    url = "https://www.kaggle.com/api/v1/datasets/download/paultimothymooney/chest-xray-pneumonia"
+    response = requests.get(url, auth=(kaggle_user, kaggle_key), stream=True, timeout=600)
 
-        if response.status_code != 200:
-            st.error(f"Failed to download dataset. Status: {response.status_code}. Check your Kaggle credentials in Streamlit secrets.")
-            st.stop()
+    if response.status_code != 200:
+        st.error(f"Download failed (status {response.status_code}). Check KAGGLE_USERNAME and KAGGLE_KEY in Streamlit secrets.")
+        st.stop()
 
-        # Download with progress
-        total = int(response.headers.get("content-length", 0))
-        downloaded = 0
-        chunks = []
-        progress = st.progress(0)
-        status   = st.empty()
+    total      = int(response.headers.get("content-length", 0))
+    downloaded = 0
+    chunks     = []
 
-        for chunk in response.iter_content(chunk_size=1024 * 1024):
-            if chunk:
-                chunks.append(chunk)
-                downloaded += len(chunk)
-                if total:
-                    pct = int(downloaded / total * 100)
-                    progress.progress(pct)
-                    status.markdown(
-                        f'<div style="font-size:12px;color:gray;">'
-                        f'Downloaded {downloaded // (1024*1024)} MB'
-                        f'{f" of {total // (1024*1024)} MB" if total else ""}'
-                        f'</div>',
-                        unsafe_allow_html=True
-                    )
+    for chunk in response.iter_content(chunk_size=1024 * 1024):
+        if chunk:
+            chunks.append(chunk)
+            downloaded += len(chunk)
+            pct = int(downloaded / total * 100) if total else 0
+            prog.progress(min(pct, 99))
+            label.caption(f"Downloaded {downloaded // (1024*1024)} MB{f' of {total // (1024*1024)} MB' if total else ''}...")
 
-        progress.empty()
-        status.empty()
-
-        # Unzip
-        with st.spinner("📦 Extracting files..."):
-            os.makedirs("data", exist_ok=True)
-            z = zipfile.ZipFile(io.BytesIO(b"".join(chunks)))
-            z.extractall("data/")
-
-    st.success("✅ Dataset ready!")
+    prog.progress(100)
+    label.caption("Extracting files...")
+    os.makedirs("data", exist_ok=True)
+    zipfile.ZipFile(io.BytesIO(b"".join(chunks))).extractall("data/")
+    prog.empty()
+    label.empty()
+    st.success("✅ Dataset ready! Reloading...")
     st.rerun()
 
 # ─────────────────────────────────────────────────────────────────────
@@ -84,11 +56,27 @@ def setup_dataset():
 # ─────────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="MedShield AI",
+    page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 setup_dataset()
+
+# ─────────────────────────────────────────────────────────────────────
+# Lazy model imports — after page config to avoid stdout on Streamlit Cloud
+# ─────────────────────────────────────────────────────────────────────
+from model.gan               import Generator, Discriminator
+from model.train             import train_gan, NOISE_DIM, DEVICE
+from model.classifier        import PneumoniaClassifier
+from model.train_classifier  import train_classifier, predict_single_image
+from attacks.fgsm            import fgsm_attack
+from attacks.pgd             import pgd_attack
+from defense.defend          import gaussian_denoise, median_filter_defense, detect_adversarial
+from torchvision import transforms
+from PIL import Image
+import torch
+import numpy as np
 
 # ─────────────────────────────────────────────────────────────────────
 # Session state bootstrap
