@@ -8,7 +8,7 @@ __pycache__/
 *.pyd
 
 # Trained model weights (large files)
-*.pth
+# *.pth  — commented out to allow pre-trained weights for cloud demo
 *.pt
 
 # Dataset (auto-downloads, no need to commit)
