@@ -568,9 +568,9 @@ with tab1:
                     st.success("✅  GAN loaded from disk")
 
         if IS_CLOUD:
-            st.info("☁️ Training is disabled on Streamlit Cloud — no dataset available. Use **📂 Load Saved GAN** above to load the pre-trained model.")
+            st.info("☁️ Training is disabled on Streamlit Cloud — no dataset available.\nUse **📂 Load Saved GAN** above to load the pre-trained model.")
         elif st.button("🚀  Start GAN Training", key="btn_train_gan"):
-            
+
             prog = st.progress(0); stat = st.empty()
             def upd(v):
                 prog.progress(v)
@@ -675,7 +675,7 @@ with tab2:
 
         clf_ep = st.slider("Epochs", 5, 30, 10, key="clf_ep")
         if IS_CLOUD:
-            st.info("☁️ Training is disabled on Streamlit Cloud. Use **📂 Load Saved Classifier** above to load the pre-trained model.")
+            st.info("☁️ Training is disabled on Streamlit Cloud.\nUse **📂 Load Saved Classifier** above to load the pre-trained model.")
         elif st.button("🫁  Train Classifier", key="btn_train_clf"):
 
             prog = st.progress(0); stat = st.empty()
