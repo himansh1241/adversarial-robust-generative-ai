@@ -1,5 +1,7 @@
 # 🩺 MedShield AI — Adversarially Robust Generative AI
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://medshield-ai.streamlit.app)
+
 > Trains a GAN on chest X-ray images, attacks it with adversarial techniques, defends against those attacks, classifies X-rays as **NORMAL** or **PNEUMONIA**, and explains model decisions using Grad-CAM — all through a professional interactive interface.
 
 [![Python](https://img.shields.io/badge/Python-3.9-blue?style=flat-square&logo=python)](https://python.org)
